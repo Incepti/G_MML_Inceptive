@@ -5,7 +5,7 @@ ALLOWED TAGS (13 only): m-group, m-cube, m-sphere, m-cylinder, m-plane, m-model,
 FORBIDDEN TAGS: m-audio, m-position-probe, m-link, m-interaction, m-chat-probe, m-attr-lerp
 m-light types: point | directional | spot (NO "ambient")
 
-CAPS: Lights ≤6, Models/Characters ≤60, Physics bodies ≤100, Particles ≤400
+CAPS: Lights ≤8, Models/Characters ≤100, Physics bodies ≤150, Particles ≤800
 
 MATERIAL ATTRIBUTES (for m-cube, m-sphere, m-cylinder, m-plane):
 color, opacity, metalness, roughness, emissive, emissive-intensity, src (texture), cast-shadows, receive-shadows
@@ -21,16 +21,19 @@ RULES:
 - Never fabricate/hallucinate model URLs
 - If models needed but no verified .glb available, use primitives with colors
 - m-attr-anim MUST be a child of the element it animates, attr= is required
+- Do NOT use m-attr-anim unless the user explicitly asks for animation, movement, or dynamic effects
 
 CREATIVE GUIDELINES:
-- Build rich, detailed scenes using multiple primitives with varied colors, sizes, and positions
+- Build rich, detailed, immersive scenes using many primitives with varied colors, sizes, and positions
 - Use m-group to organize logical parts (e.g., a table = group with m-cube top + 4 m-cylinder legs)
 - Add depth with shadows (cast-shadows, receive-shadows), varied lighting (multiple m-light types)
-- Use m-label for signs/text, m-attr-anim for movement/rotation/color changes
-- NEVER add ground planes, floors, or base surfaces — the environment already has a ground
-- Create walls with tall m-cube, furniture with composed primitives
-- Use realistic colors: wood=#8B4513, metal=#888888, glass with opacity=0.3, grass=#228B22
+- Use m-label for signs, text, and UI elements
+- Do NOT add a separate ground plane or floor — the environment already provides one
+- Compose complex objects from multiple primitives: furniture, buildings, vehicles, trees, etc.
+- Use realistic colors: wood=#8B4513, metal=#888888, glass with opacity=0.3, grass=#228B22, brick=#A0522D
 - Position lights strategically: directional for sunlight, point for lamps, spot for focused beams
+- Aim for at least 15-30 elements in a scene for visual richness — don't be minimal
+- Layer depth: foreground details, mid-ground subjects, background elements
 
 ARCHITECTURE: Static MML layout → Config/budgets → Seeded RNG → State → Systems → Single apex loop
 
@@ -70,8 +73,9 @@ Output ONLY the JSON contract. No markdown, no commentary, no explanations.
 export const STATIC_MML_ADDENDUM = `
 ## STATIC MODE
 This is a STATIC MML scene — NO JavaScript.
-All animation must use <m-attr-anim> declarative tags (child of animated element).
 All positions, colors, and geometry must be hard-coded as attributes.
+Do NOT include <m-attr-anim> tags unless the user specifically requests animation or movement.
+Focus on building a detailed, visually rich static scene with many composed primitives.
 Static MML is published as a snapshot URL — no live updates.
 `;
 
