@@ -148,10 +148,10 @@ function buildStaticDeterministicScene(
   if (models.length > 0) {
     const idx = models.length === 1 ? 0 : Math.floor(rng() * models.length);
     const chosen = models[idx];
-    modelMarkup = `<m-model id="primary-model" src="${chosen.url}" x="0" y="0" z="0" rx="0" ry="0" rz="0" cast-shadows="true" receive-shadows="true"></m-model>`;
+    modelMarkup = `<m-model id="primary-model" src="${chosen.url}" x="0" y="0" z="0" rx="0" ry="0" rz="0"></m-model>`;
     modelCount = 1;
   } else {
-    modelMarkup = `<m-cube id="fallback-cube" x="0" y="0.5" z="0" width="1" height="1" depth="1" color="#888888" cast-shadows="true" receive-shadows="true"></m-cube>`;
+    modelMarkup = `<m-cube id="fallback-cube" x="0" y="0.5" z="0" width="1" height="1" depth="1" color="#888888"></m-cube>`;
     modelCount = 0;
   }
 
@@ -444,7 +444,7 @@ CRITICAL RULES:
 4. HARD CAPS: Lights ≤8, Models ≤100, Physics bodies ≤150, Particles ≤800. Do NOT exceed these.
 5. For m-model src, use ONLY URLs from the VERIFIED_ASSET_CATALOG. NEVER fabricate .glb URLs. If no model fits, use primitives with colors.
 6. Do NOT add a separate ground plane or floor — the environment already provides one.${animRule}
-8. Build EXTREMELY DETAILED scenes — use 30-50+ elements minimum. Every object must be composed from MULTIPLE primitives (a couch needs 15+ parts: base, cushions, armrests, legs, pillows). Add surrounding context objects (side tables, lamps, rugs, wall art, plants). Use varied colors, metalness, roughness, opacity for realism. Every primitive needs cast-shadows="true" receive-shadows="true". Use 3-5 lights minimum.
+8. Build EXTREMELY DETAILED scenes — use 30-50+ elements minimum. Every object must be composed from MULTIPLE primitives (a couch needs 15+ parts: base, cushions, armrests, legs, pillows). Add surrounding context objects (side tables, lamps, rugs, wall art, plants). Use varied colors, metalness, roughness, opacity for realism. Use 3-5 lights minimum. NEVER use these unsupported attributes: cast-shadows, receive-shadows, penumbra, shadow, align, text.
 9. m-label uses content= attribute (NOT text=). Example: <m-label content="Hello" color="#fff" font-size="0.3"></m-label>
 
 IMPORTANT: The mmlHtml field must contain ONLY raw MML tags (e.g. <m-group>...). Do NOT wrap in <!DOCTYPE html>, <html>, <head>, or <body> tags.

@@ -27,7 +27,6 @@ const MATERIAL_ATTRS = new Set([
   "color", "opacity", "metalness", "roughness",
   "emissive", "emissive-intensity",
   "src",
-  "cast-shadows", "receive-shadows",
 ]);
 
 const PRIM_ATTRS = new Set([...TRANSFORM_ATTRS, ...MATERIAL_ATTRS]);
@@ -42,14 +41,13 @@ const ALLOWED_ATTRS: Record<string, Set<string>> = {
   "m-model": new Set([
     ...TRANSFORM_ATTRS,
     "src", "anim", "anim-loop", "anim-pause-on-hidden",
-    "cast-shadows", "receive-shadows",
   ]),
   "m-character": new Set([...TRANSFORM_ATTRS, "src"]),
   "m-light": new Set([
     "id", "class", "type",
     "x", "y", "z", "rx", "ry", "rz",
     "color", "intensity", "distance", "angle",
-    "cast-shadows", "debug",
+    "debug",
   ]),
   "m-image": new Set([...TRANSFORM_ATTRS, "src", "width", "height", "opacity"]),
   "m-video": new Set([
