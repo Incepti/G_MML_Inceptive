@@ -151,10 +151,7 @@ function buildStaticDeterministicScene(
     );
   }
 
-  const ground = `<m-plane id="ground" y="-1" rx="-90" width="20" height="20" color="#222222" receive-shadows="true"></m-plane>`;
-
   const mmlHtml = `<m-group id="root-scene">
-  ${ground}
   ${modelMarkup}
   ${lights.join("\n  ")}
 </m-group>`;
@@ -414,9 +411,11 @@ CRITICAL RULES:
 1. ONLY USE ALLOWED TAGS: m-group, m-cube, m-sphere, m-cylinder, m-plane, m-model, m-character, m-light, m-image, m-video, m-label, m-prompt, m-attr-anim.
 2. NEVER USE: m-audio, m-link, m-interaction, m-chat-probe, m-position-probe, m-attr-lerp.
 3. m-light type MUST BE EXACTLY ONE OF: point, directional, spot. (Do not use "ambient").
-4. HARD CAPS: Lights ≤6, Models ≤60, Physics bodies ≤100, Particles ≤400. Do NOT exceed these.
+4. HARD CAPS: Lights ≤8, Models ≤100, Physics bodies ≤150, Particles ≤800. Do NOT exceed these.
 5. For m-model src, use ONLY URLs from the VERIFIED_ASSET_CATALOG. NEVER fabricate .glb URLs. If no model fits, use primitives with colors.
-6. NEVER add ground planes, floors, or base surfaces (m-plane as ground). The environment already has a ground.
+6. Do NOT add a separate ground plane or floor — the environment already provides one.
+7. Do NOT use m-attr-anim unless the user explicitly asks for animation, movement, or dynamic effects.
+8. Build RICH, DETAILED scenes — use 15-30+ elements with varied colors, sizes, positions. Compose complex objects from multiple primitives.
 
 IMPORTANT: The mmlHtml field must contain ONLY raw MML tags (e.g. <m-group>...). Do NOT wrap in <!DOCTYPE html>, <html>, <head>, or <body> tags.
 
