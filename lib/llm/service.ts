@@ -75,6 +75,21 @@ function buildDeterministicAssetId(prompt: string, index: number): string {
   return `gen-${h.slice(0, 8)}-${index}`;
 }
 
+// ─── Strip m-attr-anim when user didn't ask for animation ────────────────
+const ANIMATION_KEYWORDS = /\b(animat|mov|rotat|spin|orbit|bounce|float|pulse|glow|flicker|wave|sway|oscillat|dynamic|motion)\w*/i;
+
+function userWantsAnimation(prompt: string): boolean {
+  return ANIMATION_KEYWORDS.test(prompt);
+}
+
+function stripAttrAnim(html: string): string {
+  // Remove all <m-attr-anim ...></m-attr-anim> and self-closing <m-attr-anim ... />
+  return html
+    .replace(/<m-attr-anim[^>]*><\/m-attr-anim>/gi, "")
+    .replace(/<m-attr-anim[^>]*\/>/gi, "")
+    .replace(/\n\s*\n/g, "\n"); // clean up blank lines
+}
+
 function normalizeSuccess(
   parsed: Exclude<LLMOutput, { error: string }>,
   req: GenerateRequest,
@@ -94,10 +109,16 @@ function normalizeSuccess(
     })
   );
 
-  const report = validateMML(parsed.mmlHtml, parsed.jsModule);
+  // Strip animations if user didn't ask for them
+  let finalHtml = parsed.mmlHtml;
+  if (!userWantsAnimation(req.prompt)) {
+    finalHtml = stripAttrAnim(finalHtml);
+  }
+
+  const report = validateMML(finalHtml, parsed.jsModule);
 
   return {
-    mmlHtml: parsed.mmlHtml,
+    mmlHtml: finalHtml,
     jsModule: parsed.jsModule,
     assetManifest: manifest,
     validationReport: report,
