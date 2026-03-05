@@ -5,6 +5,7 @@ import { buildSystemPrompt } from "@/lib/mml/promptBuilder";
 import { validateBlueprint } from "@/lib/blueprint/schema";
 import { generateMml } from "@/lib/blueprint/generateMml";
 import { validateAndFixMml } from "@/lib/mml/alphaValidator";
+import { buildEnvironmentCatalogPrompt } from "@/lib/assets/environment-catalog";
 import type { BlueprintJSON, AiResponse, AiNewSceneResponse, AiPatchResponse } from "@/types/blueprint";
 
 // Rate limiting
@@ -306,6 +307,29 @@ EXAMPLE: WATCH TOWER STRUCTURE
   ]
 }
 
+═══════════════════════════════════════════════════════════
+ASSET PREFERENCE RULE
+═══════════════════════════════════════════════════════════
+When a matching 3D model asset exists in the VERIFIED_ASSET_CATALOG or
+ENVIRONMENT ASSET CATALOG, you MUST prefer using it via modelSrc instead
+of building from primitives. Primitives are the fallback ONLY when no
+suitable asset exists.
+
+To use an asset in a structure:
+{
+  "id": "fox-forest-1",
+  "type": "prop",
+  "modelSrc": "<URL from catalog>",
+  "transform": { "x": 5, "y": 0, "z": -3, "sx": 0.02, "sy": 0.02, "sz": 0.02 },
+}
+
+Priority:
+1. Check VERIFIED_ASSET_CATALOG and ENVIRONMENT ASSET CATALOG for matching models
+2. Check Geez Collection (IDs 0-5555) if user mentions "geez" or "otherside"
+3. Fall back to primitive composition (m-cube, m-sphere, m-cylinder) with appropriate colors
+
+When using modelSrc, apply the catalog's defaultScale via transform sx/sy/sz.
+
 OUTPUT ONLY THE JSON. No markdown. No commentary. No explanations outside the JSON.
 `;
 
@@ -345,7 +369,8 @@ export async function POST(req: NextRequest) {
 
     // Build system prompt
     const baseSystem = buildSystemPrompt(projectMode, { verifiedAssets: {} });
-    const systemPrompt = `${baseSystem}\n\n${BLUEPRINT_AI_INSTRUCTIONS}`;
+    const envCatalog = buildEnvironmentCatalogPrompt();
+    const systemPrompt = `${baseSystem}\n\n${envCatalog}\n\n${BLUEPRINT_AI_INSTRUCTIONS}`;
 
     // Build user message
     let userContent = `USER REQUEST: ${userMessage}\n\nMODE: ${mode}`;

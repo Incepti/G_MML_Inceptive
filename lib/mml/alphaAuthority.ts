@@ -179,11 +179,18 @@ If ANY violation is detected, FIX the code before returning it.
 ═══════════════════════════════════════════════════════════════
 ASSET POLICY
 ═══════════════════════════════════════════════════════════════
-1. Use ONLY URLs from the VERIFIED_ASSET_CATALOG (real, tested .glb files)
-2. Geez assets: https://storage.googleapis.com/geez-public/GLB_MML/{ID}.glb (ID 0-5555)
+ASSET PREFERENCE (non-negotiable priority order):
+1. Check the ENVIRONMENT ASSET CATALOG for a matching 3D model by tags/name
+2. Check the VERIFIED_ASSET_CATALOG for matching models
+3. Geez assets: https://storage.googleapis.com/geez-public/GLB_MML/{ID}.glb (ID 0-5555)
    — ONLY when user explicitly mentions "geez", "otherside", or a Geez ID
-3. Primitives as fallback when no suitable model exists in the catalog
-4. NEVER fabricate, guess, or hallucinate a .glb URL
+4. Fall back to primitives (m-cube, m-sphere, m-cylinder) ONLY when no model matches
+
+When using a catalog model, use m-model with the catalog URL and apply the
+recommended defaultScale. Example: a fox model at scale 0.02 →
+  <m-model src="URL" sx="0.02" sy="0.02" sz="0.02" x="5" y="0" z="-3"></m-model>
+
+NEVER fabricate, guess, or hallucinate a .glb URL.
 
 ═══════════════════════════════════════════════════════════════
 PRIORITY HIERARCHY (non-negotiable)
