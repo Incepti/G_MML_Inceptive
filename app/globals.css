@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --editor-bg: #0a0f1f;
+  --editor-sidebar: #0d1326;
+  --editor-panel: #121a33;
+  --editor-border: #223052;
+  --editor-accent: #14b8a6;
+  --editor-accent-hover: #0f9a8a;
+  --editor-text: #e6f1ff;
+  --editor-text-muted: #8aa0c4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--editor-bg);
+  color: var(--editor-text);
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
+#__next,
+main {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(20, 184, 166, 0.18), transparent 60%),
+    radial-gradient(1000px 700px at 90% 10%, rgba(56, 189, 248, 0.18), transparent 60%),
+    radial-gradient(800px 600px at 30% 90%, rgba(251, 146, 60, 0.18), transparent 60%),
+    linear-gradient(180deg, rgba(10, 15, 31, 0.95), rgba(8, 11, 24, 0.98));
+  pointer-events: none;
+  z-index: -2;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Crect width='140' height='140' fill='none'/%3E%3Cpath d='M0 35h140M0 70h140M0 105h140M35 0v140M70 0v140M105 0v140' stroke='%23223052' stroke-opacity='0.18' stroke-width='1'/%3E%3C/svg%3E");
+  opacity: 0.5;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a3b66;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4a7a;
+}
+
+/* Monaco editor overrides */
+.monaco-editor {
+  background: var(--editor-bg) !important;
+}
+.monaco-editor .margin {
+  background: var(--editor-bg) !important;
+}

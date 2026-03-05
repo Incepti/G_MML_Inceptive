@@ -1,0 +1,261 @@
+📘 GEEZ OTHERSIDE PRODUCTION LIBRARY
+MASTER RESOURCE ARCHIVE
+SECTION 1 — VERIFIED PUBLIC GLB MODEL SOURCES
+
+Use only direct .glb links.
+
+1. Khronos glTF Sample Models
+
+Repository:
+https://github.com/KhronosGroup/glTF-Sample-Models
+
+CDN Direct:
+https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/
+
+Reliable, public, stable.
+
+2. modelviewer.dev shared assets
+
+https://modelviewer.dev/shared-assets/models/
+
+Clean test models, stable hosting.
+
+3. raw.githubusercontent.com
+
+For direct GLB file hosting:
+https://raw.githubusercontent.com/
+
+Only use raw file links.
+
+4. jsDelivr GitHub CDN
+
+https://cdn.jsdelivr.net/gh/
+
+Stable, production-safe CDN.
+
+5. HuggingFace datasets (direct file only)
+
+https://huggingface.co/
+
+Only use direct .glb file links.
+
+6. Google Cloud public buckets
+
+https://storage.googleapis.com/
+
+Public bucket only.
+
+SECTION 2 — PROMPT-TO-3D GENERATION TOOLS (REFERENCE)
+
+For user pipeline guidance only:
+
+• Luma AI
+• Meshy.ai
+• Kaedim
+• Sloyd.ai
+• Tripo AI
+• Polycam
+
+Note:
+Agent cannot directly generate models internally.
+These are user pipeline references only.
+
+SECTION 3 — TEXTURE / IMAGE SOURCES
+
+Use only public CDN links.
+
+• Unsplash
+• Pexels
+• Pixabay
+• Openverse
+• NASA public domain
+• Wikimedia Commons
+
+Images must be direct file URLs.
+
+SECTION 4 — NODE RUNTIME BEST PRACTICES
+
+Dynamic MML runs:
+
+• Server-side Node.js
+• Virtual DOM
+• Serialized to Unreal
+
+Never:
+
+• Use browser APIs
+• Use WebGL
+• Use Canvas
+• Use DOM events
+
+Animation:
+
+setInterval(33ms)
+
+Time:
+
+tickCount * FIXED_DT
+
+Never Date.now
+
+SECTION 5 — DETERMINISTIC RNG LIBRARY
+
+Standard:
+
+FNV-1a 32-bit
+mulberry32
+
+Never Math.random
+
+Seed:
+
+fnv1a(prompt + "GEEZ-OTHERSIDE-MML-ALPHA-V1")
+
+SECTION 6 — PARTICLE DESIGN PATTERNS
+
+Use:
+
+• Pooled allocation
+• Controlled emission
+• Burst compression
+• Brightness fade instead of alpha stacking
+• Velocity variation
+• Phase-linked emission
+
+Avoid:
+
+• Infinite spawn
+• Transparency spam
+• Constant emission
+
+Max default: 500
+Hard cap: 800
+
+SECTION 7 — LIGHTING CHOREOGRAPHY PATTERNS
+
+Max lights: 8
+
+Use:
+
+• Intensity modulation
+• Color temperature shifts
+• Pulse synchronization
+• Directional emphasis
+
+Avoid:
+
+• Light stacking
+• Overlapping heavy shadows
+• Constant high intensity
+
+SECTION 8 — SHRINE COMPOSITION PATTERNS
+
+Use:
+
+• Vertical hierarchy
+• Clear hero focal point
+• Ring symmetry
+• Depth layering
+• Negative space
+
+Avoid:
+
+• Random prop scatter
+• Uniform motion everywhere
+• Cluttered silhouettes
+
+SECTION 9 — CINEMATIC LOOP STRUCTURE
+
+Always:
+
+Calm
+Build
+Escalation
+One apex
+Resolution
+Seamless loop
+
+Apex 8–12 seconds.
+
+Sub-peaks ≤60%.
+
+SECTION 10 — TRANSPARENCY DISCIPLINE
+
+Max 3 overlapping transparent layers in hero region.
+
+Reduce in order:
+
+Background particles
+
+UI overlays
+
+Shockwave
+
+Beam opacity (last)
+
+SECTION 11 — PERFORMANCE SCALING PATTERNS
+
+Distance throttle:
+
+Near: 30fps
+Mid: 10fps
+Far: static
+
+Graceful degradation:
+
+Reduce background VFX first.
+Preserve hero clarity.
+
+SECTION 12 — CODE ARCHITECTURE TEMPLATE
+
+Modules:
+
+RNG
+Timeline
+Particles
+Physics
+Chain
+Utilities
+
+No spaghetti logic.
+
+SECTION 13 — FAILURE HANDLING PATTERNS
+
+Model fails:
+
+Retry once → fallback → primitive minimal.
+
+RPC fails after live:
+
+Freeze last state
+Switch to simulated
+Show SIGNAL LOST
+Never freeze loop.
+
+SECTION 14 — MODEL-FIRST ENFORCEMENT
+
+Primitives only structural.
+
+Visible scene must prioritize:
+
+Character models
+
+External GLBs
+
+Minimal primitives
+
+No fabricated URLs.
+
+No placeholders.
+
+SECTION 15 — IDEA ENGINE UPGRADE
+
+Idea stage:
+
+Dream big internally.
+Filter internally.
+Deliver feasible cinematic concepts.
+
+Never lecture constraints at idea stage.
+
+END OF MASTER LIBRARY
