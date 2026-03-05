@@ -83,10 +83,11 @@ function userWantsAnimation(prompt: string): boolean {
 }
 
 function stripAttrAnim(html: string): string {
-  // Remove all <m-attr-anim ...></m-attr-anim> and self-closing <m-attr-anim ... />
+  // Remove all m-attr-anim tags: with content, empty, or self-closing
   return html
-    .replace(/<m-attr-anim[^>]*><\/m-attr-anim>/gi, "")
+    .replace(/<m-attr-anim[\s\S]*?<\/m-attr-anim>/gi, "")
     .replace(/<m-attr-anim[^>]*\/>/gi, "")
+    .replace(/<m-attr-anim[^>]*>/gi, "") // catch any unclosed tags
     .replace(/\n\s*\n/g, "\n"); // clean up blank lines
 }
 
@@ -421,6 +422,14 @@ function buildUserMessage(req: GenerateRequest): string {
     ? `\n\n## Existing MML (modify or extend this)\n\`\`\`html\n${req.existingMML}\n\`\`\``
     : "";
 
+  const wantsAnim = userWantsAnimation(req.prompt);
+  const allowedTagsList = wantsAnim
+    ? "m-group, m-cube, m-sphere, m-cylinder, m-plane, m-model, m-character, m-light, m-image, m-video, m-label, m-prompt, m-attr-anim"
+    : "m-group, m-cube, m-sphere, m-cylinder, m-plane, m-model, m-character, m-light, m-image, m-video, m-label, m-prompt";
+  const animRule = wantsAnim
+    ? ""
+    : "\n7. ABSOLUTELY NO m-attr-anim tags. Do NOT add ANY animation. The scene must be 100% static. If you include any m-attr-anim tag, the output will be rejected.";
+
   return `Generate MML Alpha code for the following request:
 
 ${req.prompt}
@@ -429,14 +438,14 @@ ${contextSection}
 ${existingSection}
 
 CRITICAL RULES:
-1. ONLY USE ALLOWED TAGS: m-group, m-cube, m-sphere, m-cylinder, m-plane, m-model, m-character, m-light, m-image, m-video, m-label, m-prompt, m-attr-anim.
+1. ONLY USE THESE TAGS: ${allowedTagsList}.
 2. NEVER USE: m-audio, m-link, m-interaction, m-chat-probe, m-position-probe, m-attr-lerp.
 3. m-light type MUST BE EXACTLY ONE OF: point, directional, spot. (Do not use "ambient").
 4. HARD CAPS: Lights ≤8, Models ≤100, Physics bodies ≤150, Particles ≤800. Do NOT exceed these.
 5. For m-model src, use ONLY URLs from the VERIFIED_ASSET_CATALOG. NEVER fabricate .glb URLs. If no model fits, use primitives with colors.
-6. Do NOT add a separate ground plane or floor — the environment already provides one.
-7. Do NOT use m-attr-anim unless the user explicitly asks for animation, movement, or dynamic effects.
+6. Do NOT add a separate ground plane or floor — the environment already provides one.${animRule}
 8. Build EXTREMELY DETAILED scenes — use 30-50+ elements minimum. Every object must be composed from MULTIPLE primitives (a couch needs 15+ parts: base, cushions, armrests, legs, pillows). Add surrounding context objects (side tables, lamps, rugs, wall art, plants). Use varied colors, metalness, roughness, opacity for realism. Every primitive needs cast-shadows="true" receive-shadows="true". Use 3-5 lights minimum.
+9. m-label uses content= attribute (NOT text=). Example: <m-label content="Hello" color="#fff" font-size="0.3"></m-label>
 
 IMPORTANT: The mmlHtml field must contain ONLY raw MML tags (e.g. <m-group>...). Do NOT wrap in <!DOCTYPE html>, <html>, <head>, or <body> tags.
 
