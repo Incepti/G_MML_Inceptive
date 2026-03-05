@@ -63,6 +63,7 @@ const GenerateSchema = z.object({
     )
     .default([]),
   existingMML: z.string().optional(),
+  existingBlueprint: z.string().optional(),
   model: z.string().optional(),
   conversationHistory: z
     .array(

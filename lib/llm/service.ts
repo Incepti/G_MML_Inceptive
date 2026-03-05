@@ -21,6 +21,7 @@ export interface GenerateRequest {
   projectContext?: string;
   assetManifest: AssetManifestEntry[];
   existingMML?: string;
+  existingBlueprint?: string;
   model?: string;
   strictMode?: boolean;
   modelFirstRequired?: boolean;
@@ -48,6 +49,7 @@ export interface GenerateResult {
   reasoning?: {
     steps: Array<{ title: string; content: string }>;
   };
+  blueprint?: unknown;
   raw?: unknown;
 }
 
@@ -164,6 +166,7 @@ function normalizeSuccess(
     compliance: compliance as GenerateResult["compliance"],
     overallStatus,
     reasoning: parsed.reasoning,
+    blueprint: parsed.blueprint,
     raw: { ...parsed, compliance, overallStatus },
   };
 }
@@ -469,15 +472,20 @@ function buildUserMessage(req: GenerateRequest): string {
     : `
 - ABSOLUTELY NO m-attr-anim tags. The scene must be 100% static. Any m-attr-anim tag = REJECTED.`;
 
+  const blueprintSection = req.existingBlueprint
+    ? `\n\nEXISTING BLUEPRINT (update this — add/remove/modify structures, then regenerate MML from it):\n${req.existingBlueprint}`
+    : "";
+
   const iterativeNote = isIterative
-    ? "\n\nIMPORTANT: This is an ITERATIVE modification. The user wants to modify the existing scene. Keep ALL existing elements and structure. Only change what the user specifically asks for. Do NOT regenerate from scratch."
+    ? "\n\nIMPORTANT: This is an ITERATIVE modification. Update the BLUEPRINT first based on the user's request, then regenerate MML from the updated blueprint. Include the FULL updated blueprint. Do NOT regenerate from scratch — preserve existing structures."
     : "";
 
   return `USER PROMPT: ${req.prompt}
-${manifestSummary}${geezNote}${contextSection}${existingSection}${iterativeNote}
+${manifestSummary}${geezNote}${contextSection}${existingSection}${blueprintSection}${iterativeNote}
 
 Follow the 5-step pipeline from your system instructions.
-Include a "reasoning" field in your JSON with steps: Scene Blueprint, Scale Plan, Alpha Compliance, Code Audit.
+Generate the "blueprint" field FIRST, then derive "mmlHtml" from it.
+Include a "reasoning" field with steps: Scene Blueprint, Blueprint Validation, Alpha Compliance, Code Audit.
 
 ENFORCEMENT RULES:
 - ONLY these tags: ${allowedTagsList}

@@ -13,34 +13,64 @@ Before generating ANY code, analyze the user's request and determine:
 • Animation elements (ONLY if user explicitly requests movement)
 
 ═══════════════════════════════════════════════════════════════
-STEP 2 — SCENE PLANNING
+STEP 2 — SCENE BLUEPRINT GENERATION
 ═══════════════════════════════════════════════════════════════
-Design the scene layout internally before writing code:
-• Main structures — the primary focal elements
-• Secondary structures — supporting architecture or large objects
-• Detail objects — small props, decorations, context items
-• Light placement — directional for sun/moon, point for lamps, spot for focus
-• Spatial layout — use m-group to organize logical sub-objects
-• Depth layering — foreground details, mid-ground subjects, background elements
+BEFORE writing any MML code, generate a structured "blueprint" JSON object.
+The blueprint is the SOURCE OF TRUTH for the scene. All MML code MUST be
+derived from it. Include the blueprint in your JSON output as the "blueprint" field.
 
-DETAIL REQUIREMENTS:
-• MINIMUM 30-50 elements per scene. More is better.
-• Every object must be composed from MULTIPLE primitives.
-  - A couch: base frame, seat cushions, back cushions, armrests, legs, pillows (15+ parts)
-  - A tree: trunk (m-cylinder), branch layers (m-spheres), leaf clusters at angles
-  - A lamp: base, pole (m-cylinder), shade (m-cylinder/m-sphere), bulb (emissive m-sphere)
-• Add surrounding context: side tables, rugs (flat m-cube), wall art, plants, mugs, books
-• Use VARIED, REALISTIC colors with subtle differences between parts
-  #8B4513 dark wood, #A0522D medium wood, #DEB887 light wood, #D2B48C tan,
-  #888888 metal, #228B22 grass, #4169E1 blue, #DC143C red accent
-• Material variation: metalness (0.0-1.0), roughness (0.0-1.0), emissive for glowing, opacity for glass
-• Scale realistically: chair seat ~0.45m, table ~0.75m, door ~2m, person ~1.7m
-• Use 3-5 lights minimum: directional for main, point for lamps/accent, spot for focused areas
+Blueprint structure:
+{
+  "environment": "<type>",       // "prison_complex", "forest_clearing", etc.
+  "zones": ["<zone1>", ...],    // logical areas of the scene
+  "structures": [
+    {
+      "type": "<name>",          // "watch_tower", "wall_segment", "tree"
+      "position": "<location>",  // "nw", "center", "x:5,y:0,z:-3"
+      "scale": "<size>",         // "small", "medium", "large", or numeric
+      "attributes": {},          // color, material hints
+      "children": [...]          // sub-structures (same shape)
+    }
+  ],
+  "lighting": "<scheme>",       // "night", "sunset", "bright_day"
+  "mood": "<atmosphere>"         // "ominous", "peaceful", "energetic"
+}
+
+BLUEPRINT RULES:
+• MINIMUM 10-20 structures (each expands to multiple MML primitives)
+• Every structure MUST have type and position
+• Use zones to organize spatial layout logically
+• Children represent sub-parts (tower's spotlight, building's windows)
+• Positions: cardinal ("nw"), descriptive ("along_east_wall"), or numeric ("x:5,y:0,z:-3")
+
+ITERATIVE MODIFICATIONS:
+When modifying an existing scene, you will receive an EXISTING BLUEPRINT.
+Update the blueprint FIRST (add/remove/modify structures), then regenerate
+the FULL MML from the updated blueprint. Always include the COMPLETE updated
+blueprint — not just the changes.
+
+DETAIL REQUIREMENTS (when converting blueprint to MML):
+• MINIMUM 30-50 MML elements per scene
+• Every structure expands to MULTIPLE primitives
+  - watch_tower: base (m-cube), shaft (m-cylinder), platform, roof, railing
+  - tree: trunk (m-cylinder), branch layers (m-spheres), leaf clusters
+  - lamp: base, pole (m-cylinder), shade, bulb (emissive m-sphere)
+• Use VARIED, REALISTIC colors with subtle differences
+  #8B4513 dark wood, #A0522D medium wood, #DEB887 light wood, #888888 metal
+• Material variation: metalness, roughness, emissive, opacity
+• Scale realistically: chair ~0.45m, table ~0.75m, door ~2m
+• Use 3-5 lights minimum
 
 ═══════════════════════════════════════════════════════════════
-STEP 3 — ALPHA COMPLIANCE VALIDATION
+STEP 3 — BLUEPRINT VALIDATION + ALPHA COMPLIANCE
 ═══════════════════════════════════════════════════════════════
-Check every element against these rules BEFORE generating code.
+Validate the blueprint before generating code:
+• All zones covered by at least one structure
+• Structure count is reasonable (10-20+)
+• Positions are spatially consistent
+• Scale is consistent across similar objects
+
+Then check every planned element against Alpha rules:
 
 ALLOWED TAGS (13 total):
 m-group, m-cube, m-sphere, m-cylinder, m-plane, m-model, m-character,
@@ -79,14 +109,17 @@ ENVIRONMENT RULE:
 Do NOT add a separate ground plane or floor — the environment already provides one.
 
 ═══════════════════════════════════════════════════════════════
-STEP 4 — CODE GENERATION
+STEP 4 — BLUEPRINT → MML CODE GENERATION
 ═══════════════════════════════════════════════════════════════
-Generate the final MML code following these structural rules:
-• Start with a root <m-group> that wraps the entire scene
-• Group structures logically with nested m-group elements (id= for each group)
-• Use consistent, realistic positioning
-• Avoid unnecessary geometry duplication
-• Keep the code visually clear and well-structured
+Convert the blueprint to MML code. Each blueprint structure becomes an m-group:
+• Root <m-group> wraps the entire scene
+• Each zone becomes a nested m-group (id="zone-{name}")
+• Each structure becomes a nested m-group (id="{type}-{position}")
+• Blueprint positions map to x/y/z coordinates
+• Blueprint scale maps to sx/sy/sz attributes
+• Blueprint attributes map to color, metalness, roughness, etc.
+• Children expand to sub-elements within the structure's m-group
+• Keep the code visually clear — the m-group hierarchy should mirror the blueprint
 
 ═══════════════════════════════════════════════════════════════
 STEP 5 — AUTOMATIC CODE AUDIT
@@ -133,14 +166,17 @@ Include a "reasoning" field in your JSON output with your step-by-step thinking:
 {
   "reasoning": {
     "steps": [
-      { "title": "Scene Blueprint", "content": "..." },
-      { "title": "Scale & Layout Plan", "content": "..." },
-      { "title": "Alpha Compliance Check", "content": "..." },
-      { "title": "Code Audit Results", "content": "..." }
+      { "title": "Scene Blueprint", "content": "Summary of blueprint: environment, zones, key structures" },
+      { "title": "Blueprint Validation", "content": "Zone coverage, structure count, scale consistency" },
+      { "title": "Alpha Compliance", "content": "Tag/attribute/cap rule validation results" },
+      { "title": "Code Audit", "content": "Final MML code review results" }
     ]
   }
 }
-This helps the user understand your decision-making process.
+
+CRITICAL: Also include the FULL "blueprint" field in your JSON output.
+The blueprint must be generated BEFORE the mmlHtml and is the source of truth.
+The mmlHtml must faithfully represent every structure in the blueprint.
 
 Output ONLY the JSON contract. No markdown, no commentary, no explanations.
 `;

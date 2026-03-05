@@ -3,12 +3,20 @@
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useEditorStore } from "@/lib/store";
-import type { ReasoningStep } from "@/types/chat";
+import type { ReasoningStep, SceneBlueprint } from "@/types/chat";
 
 function synthesizeReasoning(data: Record<string, unknown>): ReasoningStep[] {
   const steps: ReasoningStep[] = [];
 
-  if (data.explanation) {
+  if (data.blueprint) {
+    const bp = data.blueprint as SceneBlueprint;
+    const structureTypes = bp.structures?.map((s) => s.type).join(", ") || "none";
+    steps.push({
+      title: "Scene Blueprint",
+      content: `Environment: ${bp.environment || "unknown"}\nZones: ${bp.zones?.join(", ") || "none"}\nStructures (${bp.structures?.length || 0}): ${structureTypes}\nLighting: ${bp.lighting || "default"}\nMood: ${bp.mood || "neutral"}`,
+      status: "complete",
+    });
+  } else if (data.explanation) {
     steps.push({
       title: "Scene Blueprint",
       content: String(data.explanation),
@@ -104,6 +112,14 @@ export function useGenerate() {
         const mmlFile = project.files.find((f) => f.name === "scene.mml");
         const jsFile = project.files.find((f) => f.name === "scene.js");
 
+        // 3b. Find the most recent blueprint from conversation history
+        const lastBlueprint = [...chatHistory]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.blueprint)?.blueprint;
+        const existingBlueprint = lastBlueprint
+          ? JSON.stringify(lastBlueprint)
+          : undefined;
+
         // 4. Call API
         const res = await fetch("/api/generate", {
           method: "POST",
@@ -113,6 +129,7 @@ export function useGenerate() {
             mode: project.mode,
             assetManifest: project.assetManifest,
             existingMML: mmlFile?.content,
+            existingBlueprint,
             projectContext: `Project: ${project.name}, Mode: ${project.mode}`,
             strictMode: store.strictMode,
             conversationHistory,
@@ -146,6 +163,7 @@ export function useGenerate() {
           content: data.explanation || "Scene generated successfully.",
           reasoning,
           generatedMml: data.mmlHtml,
+          blueprint: data.blueprint || undefined,
         });
 
         // 7. Update files

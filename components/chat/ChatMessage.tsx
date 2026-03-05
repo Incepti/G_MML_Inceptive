@@ -1,7 +1,40 @@
 "use client";
 
 import React, { useState } from "react";
-import type { ChatMessage as ChatMessageType, ReasoningStep } from "@/types/chat";
+import type { ChatMessage as ChatMessageType, ReasoningStep, SceneBlueprint } from "@/types/chat";
+
+function BlueprintDisplay({ blueprint }: { blueprint: SceneBlueprint }) {
+  const [showJson, setShowJson] = useState(false);
+
+  return (
+    <div className="border border-editor-accent/30 rounded overflow-hidden bg-editor-accent/5">
+      <div className="px-2.5 py-1.5 text-[11px] space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="text-editor-accent font-semibold">Scene Blueprint</span>
+          <button
+            onClick={() => setShowJson(!showJson)}
+            className="ml-auto text-[10px] text-editor-text-muted hover:text-editor-text"
+          >
+            {showJson ? "Summary" : "JSON"}
+          </button>
+        </div>
+        {showJson ? (
+          <pre className="text-[10px] text-editor-text-muted whitespace-pre-wrap max-h-48 overflow-y-auto">
+            {JSON.stringify(blueprint, null, 2)}
+          </pre>
+        ) : (
+          <div className="space-y-0.5 text-editor-text-muted">
+            <div><span className="text-editor-text">Environment:</span> {blueprint.environment}</div>
+            <div><span className="text-editor-text">Zones:</span> {blueprint.zones?.join(", ") || "none"}</div>
+            <div><span className="text-editor-text">Structures:</span> {blueprint.structures?.length || 0} — {blueprint.structures?.map(s => s.type).slice(0, 5).join(", ")}{(blueprint.structures?.length || 0) > 5 ? "..." : ""}</div>
+            {blueprint.lighting && <div><span className="text-editor-text">Lighting:</span> {blueprint.lighting}</div>}
+            {blueprint.mood && <div><span className="text-editor-text">Mood:</span> {blueprint.mood}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ReasoningAccordion({ step }: { step: ReasoningStep }) {
   const [open, setOpen] = useState(false);
@@ -74,6 +107,13 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
         {message.content && (
           <div className="text-xs text-editor-text leading-relaxed pl-6">
             {message.content}
+          </div>
+        )}
+
+        {/* Blueprint */}
+        {message.blueprint && (
+          <div className="pl-6">
+            <BlueprintDisplay blueprint={message.blueprint} />
           </div>
         )}
 

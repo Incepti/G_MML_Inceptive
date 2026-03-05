@@ -44,6 +44,24 @@ export type MmlSuccessOutput = {
       content: string;
     }>;
   };
+  blueprint?: {
+    environment: string;
+    zones: string[];
+    structures: Array<{
+      type: string;
+      position: string;
+      scale?: string;
+      children?: Array<{
+        type: string;
+        position: string;
+        scale?: string;
+        attributes?: Record<string, string>;
+      }>;
+      attributes?: Record<string, string>;
+    }>;
+    lighting?: string;
+    mood?: string;
+  };
 };
 
 export type MmlErrorOutput = {
@@ -75,10 +93,27 @@ SUCCESS:
     }
   ],
   "explanation": "Brief description of what was generated",
+  "blueprint": {
+    "environment": "prison_complex",
+    "zones": ["courtyard", "perimeter", "cell_block"],
+    "structures": [
+      {
+        "type": "watch_tower",
+        "position": "nw",
+        "scale": "large",
+        "attributes": {"color": "#555555", "material": "stone"},
+        "children": [
+          {"type": "spotlight", "position": "top", "attributes": {"intensity": "2"}}
+        ]
+      }
+    ],
+    "lighting": "night",
+    "mood": "ominous"
+  },
   "reasoning": {
     "steps": [
-      {"title": "Scene Blueprint", "content": "Layout and structure plan"},
-      {"title": "Scale Plan", "content": "Proportions and measurements"},
+      {"title": "Scene Blueprint", "content": "Structured blueprint of the scene layout"},
+      {"title": "Blueprint Validation", "content": "Zone coverage and structure consistency check"},
       {"title": "Alpha Compliance", "content": "Rule validation results"},
       {"title": "Code Audit", "content": "Final code review results"}
     ]

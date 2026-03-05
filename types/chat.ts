@@ -4,6 +4,22 @@ export interface ReasoningStep {
   status: "pending" | "complete" | "error";
 }
 
+export interface BlueprintStructure {
+  type: string;
+  position: string;
+  scale?: string;
+  children?: BlueprintStructure[];
+  attributes?: Record<string, string>;
+}
+
+export interface SceneBlueprint {
+  environment: string;
+  zones: string[];
+  structures: BlueprintStructure[];
+  lighting?: string;
+  mood?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "system";
@@ -11,6 +27,7 @@ export interface ChatMessage {
   reasoning?: ReasoningStep[];
   timestamp: string;
   generatedMml?: string;
+  blueprint?: SceneBlueprint;
 }
 
 export interface LogEntry {
