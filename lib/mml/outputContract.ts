@@ -38,6 +38,12 @@ export type MmlSuccessOutput = {
     "Identity Consistency": "Pass" | "Fail";
   };
   overallStatus?: "ACCEPTED" | "REJECTED";
+  reasoning?: {
+    steps: Array<{
+      title: string;
+      content: string;
+    }>;
+  };
 };
 
 export type MmlErrorOutput = {
@@ -69,6 +75,14 @@ SUCCESS:
     }
   ],
   "explanation": "Brief description of what was generated",
+  "reasoning": {
+    "steps": [
+      {"title": "Scene Blueprint", "content": "Layout and structure plan"},
+      {"title": "Scale Plan", "content": "Proportions and measurements"},
+      {"title": "Alpha Compliance", "content": "Rule validation results"},
+      {"title": "Code Audit", "content": "Final code review results"}
+    ]
+  },
   "architectureSummary": {
     "systems": ["RNG", "Timeline", "Physics", "Particles", "Chain", "Utility"],
     "budgetSource": "user|default",

@@ -4,10 +4,26 @@ import { v4 as uuidv4 } from "uuid";
 import type { Project, ProjectFile } from "@/types/project";
 import type { AssetManifestEntry } from "@/types/assets";
 import type { ValidationReport } from "@/types/mml";
+import type { ChatMessage, LogEntry } from "@/types/chat";
 import type { RendererOptions } from "@/lib/renderer/engine";
 import { DEFAULT_RENDERER_OPTIONS } from "@/lib/renderer/engine";
 
-// ─── Editor State ──────────────────────────────────────────────────────────
+// ─── Panel Layout ─────────────────────────────────────────────────────────
+interface PanelSizes {
+  agentWidth: number;
+  viewerPercent: number;
+  logsHeight: number;
+  logsCollapsed: boolean;
+}
+
+const DEFAULT_PANEL_SIZES: PanelSizes = {
+  agentWidth: 320,
+  viewerPercent: 38,
+  logsHeight: 160,
+  logsCollapsed: false,
+};
+
+// ─── Editor State ─────────────────────────────────────────────────────────
 interface EditorState {
   // Projects
   projects: Project[];
@@ -44,7 +60,18 @@ interface EditorState {
   assetSearchQuery: string;
   selectedAssetId: string | null;
 
-  // UI State
+  // Chat (per-project)
+  chatHistories: Record<string, ChatMessage[]>;
+
+  // Logs
+  logs: LogEntry[];
+
+  // Layout
+  panelSizes: PanelSizes;
+  assetDrawerOpen: boolean;
+  settingsOpen: boolean;
+
+  // UI State (legacy, kept for backward compat)
   sidebarTab: "explorer" | "assets";
   inspectorTab: "properties" | "manifest" | "validation";
 
@@ -84,7 +111,23 @@ interface EditorActions {
   setAssetSearchQuery: (q: string) => void;
   setSelectedAsset: (id: string | null) => void;
 
-  // UI
+  // Chat
+  addChatMessage: (projectId: string, message: ChatMessage) => void;
+  updateChatMessage: (projectId: string, messageId: string, updates: Partial<ChatMessage>) => void;
+  getChatHistory: () => ChatMessage[];
+  clearChatHistory: (projectId: string) => void;
+
+  // Logs
+  addLog: (entry: Omit<LogEntry, "id" | "timestamp">) => void;
+  clearLogs: () => void;
+
+  // Layout
+  setPanelSizes: (sizes: Partial<PanelSizes>) => void;
+  toggleLogsPanel: () => void;
+  setAssetDrawerOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
+
+  // UI (legacy)
   setSidebarTab: (tab: "explorer" | "assets") => void;
   setInspectorTab: (tab: "properties" | "manifest" | "validation") => void;
 
@@ -117,6 +160,11 @@ export const useEditorStore = create<StoreState>()(
       strictMode: false,
       assetSearchQuery: "",
       selectedAssetId: null,
+      chatHistories: {},
+      logs: [],
+      panelSizes: DEFAULT_PANEL_SIZES,
+      assetDrawerOpen: false,
+      settingsOpen: false,
       sidebarTab: "explorer",
       inspectorTab: "validation",
       sandboxReady: true,
@@ -144,7 +192,7 @@ export const useEditorStore = create<StoreState>()(
             name: "scene.js",
             type: "js",
             content:
-              `// Dynamic MML script\n// tick: integer counter (incremented every 16ms)\n\nsetInterval(function() {\n  // Animation logic here\n}, 16);\n`,
+              `// Dynamic MML script\nlet tick = 0;\nsetInterval(() => {\n  tick++;\n  // Animation logic here\n}, 33);\n`,
             updatedAt: now,
           });
         }
@@ -245,7 +293,60 @@ export const useEditorStore = create<StoreState>()(
       setAssetSearchQuery: (q) => set({ assetSearchQuery: q }),
       setSelectedAsset: (id) => set({ selectedAssetId: id }),
 
-      // ── UI ───────────────────────────────────────────────────────────
+      // ── Chat ──────────────────────────────────────────────────────────
+      addChatMessage: (projectId, message) =>
+        set((s) => ({
+          chatHistories: {
+            ...s.chatHistories,
+            [projectId]: [...(s.chatHistories[projectId] || []), message],
+          },
+        })),
+
+      updateChatMessage: (projectId, messageId, updates) =>
+        set((s) => ({
+          chatHistories: {
+            ...s.chatHistories,
+            [projectId]: (s.chatHistories[projectId] || []).map((m) =>
+              m.id === messageId ? { ...m, ...updates } : m
+            ),
+          },
+        })),
+
+      getChatHistory: () => {
+        const s = get();
+        if (!s.activeProjectId) return [];
+        return s.chatHistories[s.activeProjectId] || [];
+      },
+
+      clearChatHistory: (projectId) =>
+        set((s) => ({
+          chatHistories: { ...s.chatHistories, [projectId]: [] },
+        })),
+
+      // ── Logs ──────────────────────────────────────────────────────────
+      addLog: (entry) =>
+        set((s) => ({
+          logs: [
+            { ...entry, id: uuidv4(), timestamp: new Date().toISOString() },
+            ...s.logs,
+          ].slice(0, 500),
+        })),
+
+      clearLogs: () => set({ logs: [] }),
+
+      // ── Layout ────────────────────────────────────────────────────────
+      setPanelSizes: (sizes) =>
+        set((s) => ({ panelSizes: { ...s.panelSizes, ...sizes } })),
+
+      toggleLogsPanel: () =>
+        set((s) => ({
+          panelSizes: { ...s.panelSizes, logsCollapsed: !s.panelSizes.logsCollapsed },
+        })),
+
+      setAssetDrawerOpen: (open) => set({ assetDrawerOpen: open }),
+      setSettingsOpen: (open) => set({ settingsOpen: open }),
+
+      // ── UI (legacy) ───────────────────────────────────────────────────
       setSidebarTab: (tab) => set({ sidebarTab: tab }),
       setInspectorTab: (tab) => set({ inspectorTab: tab }),
 
@@ -274,6 +375,8 @@ export const useEditorStore = create<StoreState>()(
         rendererOptions: state.rendererOptions,
         promptText: state.promptText,
         selectedModel: state.selectedModel,
+        chatHistories: state.chatHistories,
+        panelSizes: state.panelSizes,
       }),
     }
   )

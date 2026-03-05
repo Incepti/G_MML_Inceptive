@@ -55,12 +55,12 @@ export type MMLForbiddenTag = (typeof MML_FORBIDDEN_TAGS)[number];
 
 // ─── MML Caps (Final Brain V3 — authoritative) ────────────────────────────
 export const MML_CAPS = {
-  MAX_MODELS: 60,
-  MAX_LIGHTS: 6,
-  MAX_PHYSICS_BODIES: 100,
-  MAX_PARTICLES: 400,
+  MAX_MODELS: 100,
+  MAX_LIGHTS: 8,
+  MAX_PHYSICS_BODIES: 150,
+  MAX_PARTICLES: 800,
   MAX_DYNAMIC_INTERVALS: 10,
-  MAX_TRANSPARENCY_LAYERS: 3, // Max significant layers in hero region
+  MAX_TRANSPARENCY_LAYERS: 3,
 } as const;
 
 // ─── Validation Types ──────────────────────────────────────────────────────

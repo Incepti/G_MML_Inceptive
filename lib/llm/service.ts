@@ -24,6 +24,7 @@ export interface GenerateRequest {
   model?: string;
   strictMode?: boolean;
   modelFirstRequired?: boolean;
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 export interface GenerateResult {
@@ -44,6 +45,9 @@ export interface GenerateResult {
     "Identity Consistency": "Pass" | "Fail";
   };
   overallStatus?: "ACCEPTED" | "REJECTED";
+  reasoning?: {
+    steps: Array<{ title: string; content: string }>;
+  };
   raw?: unknown;
 }
 
@@ -159,6 +163,7 @@ function normalizeSuccess(
     explanation: parsed.explanation || "",
     compliance: compliance as GenerateResult["compliance"],
     overallStatus,
+    reasoning: parsed.reasoning,
     raw: { ...parsed, compliance, overallStatus },
   };
 }
@@ -449,8 +454,9 @@ function buildUserMessage(req: GenerateRequest): string {
     ? `\n\nExisting Project Context:\n${req.projectContext}`
     : "";
 
+  const isIterative = !!req.existingMML && (req.conversationHistory?.length || 0) > 0;
   const existingSection = req.existingMML
-    ? `\n\nExisting MML (modify or extend this):\n${req.existingMML}`
+    ? `\n\nExisting MML${isIterative ? " (MODIFY this — keep existing elements, only change what the user asks for)" : " (reference)"}:\n${req.existingMML}`
     : "";
 
   const wantsAnim = userWantsAnimation(req.prompt);
@@ -463,10 +469,15 @@ function buildUserMessage(req: GenerateRequest): string {
     : `
 - ABSOLUTELY NO m-attr-anim tags. The scene must be 100% static. Any m-attr-anim tag = REJECTED.`;
 
+  const iterativeNote = isIterative
+    ? "\n\nIMPORTANT: This is an ITERATIVE modification. The user wants to modify the existing scene. Keep ALL existing elements and structure. Only change what the user specifically asks for. Do NOT regenerate from scratch."
+    : "";
+
   return `USER PROMPT: ${req.prompt}
-${manifestSummary}${geezNote}${contextSection}${existingSection}
+${manifestSummary}${geezNote}${contextSection}${existingSection}${iterativeNote}
 
 Follow the 5-step pipeline from your system instructions.
+Include a "reasoning" field in your JSON with steps: Scene Blueprint, Scale Plan, Alpha Compliance, Code Audit.
 
 ENFORCEMENT RULES:
 - ONLY these tags: ${allowedTagsList}
@@ -496,7 +507,37 @@ export async function generateMML(req: GenerateRequest): Promise<GenerateResult>
 
   async function callLLM(extraError?: string, overrideModel?: string): Promise<string> {
     const targetModel = overrideModel || defaultModel;
+
+    // Build multi-turn messages from conversation history
+    const historyMessages: Anthropic.MessageParam[] = [];
+    if (req.conversationHistory && req.conversationHistory.length > 0) {
+      // Take last 10 messages for context window management
+      const recent = req.conversationHistory.slice(-10);
+      for (const msg of recent) {
+        historyMessages.push({
+          role: msg.role === "assistant" ? "assistant" : "user",
+          content: msg.content,
+        });
+      }
+      // Ensure messages alternate roles (Anthropic requirement)
+      // Merge consecutive same-role messages
+      const merged: Anthropic.MessageParam[] = [];
+      for (const msg of historyMessages) {
+        if (merged.length > 0 && merged[merged.length - 1].role === msg.role) {
+          merged[merged.length - 1] = {
+            role: msg.role,
+            content: merged[merged.length - 1].content + "\n\n" + msg.content,
+          };
+        } else {
+          merged.push({ ...msg });
+        }
+      }
+      historyMessages.length = 0;
+      historyMessages.push(...merged);
+    }
+
     const messages: Anthropic.MessageParam[] = [
+      ...historyMessages,
       { role: "user", content: buildUserMessage(req) },
       ...(extraError
         ? [
@@ -511,6 +552,11 @@ export async function generateMML(req: GenerateRequest): Promise<GenerateResult>
         ]
         : []),
     ];
+
+    // Ensure first message is from user (Anthropic requirement)
+    if (messages.length > 0 && messages[0].role !== "user") {
+      messages.shift();
+    }
     const response = await anthropic.messages.create({
       model: targetModel,
       system: systemPrompt,

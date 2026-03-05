@@ -126,6 +126,22 @@ DETERMINISM LAW:
 ZERO TOLERANCE: Never break Alpha, never exceed caps, never fabricate URLs,
 never use forbidden tags or attributes, never block render loop.
 
+═══════════════════════════════════════════════════════════════
+REASONING OUTPUT
+═══════════════════════════════════════════════════════════════
+Include a "reasoning" field in your JSON output with your step-by-step thinking:
+{
+  "reasoning": {
+    "steps": [
+      { "title": "Scene Blueprint", "content": "..." },
+      { "title": "Scale & Layout Plan", "content": "..." },
+      { "title": "Alpha Compliance Check", "content": "..." },
+      { "title": "Code Audit Results", "content": "..." }
+    ]
+  }
+}
+This helps the user understand your decision-making process.
+
 Output ONLY the JSON contract. No markdown, no commentary, no explanations.
 `;
 

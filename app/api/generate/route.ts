@@ -64,6 +64,15 @@ const GenerateSchema = z.object({
     .default([]),
   existingMML: z.string().optional(),
   model: z.string().optional(),
+  conversationHistory: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().max(4000),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 export async function POST(req: NextRequest) {
@@ -247,10 +256,10 @@ export async function POST(req: NextRequest) {
 
     // Layer 1 - Budget declaration enforcement
     const budgetDefaults = [
-      "lights <= 6",
-      "models <= 60",
-      "physics bodies <= 100",
-      "particles <= 400",
+      "lights <= 8",
+      "models <= 100",
+      "physics bodies <= 150",
+      "particles <= 800",
       "tick rate = 33ms",
       "max loop duration <= 60",
       "single apex only",
