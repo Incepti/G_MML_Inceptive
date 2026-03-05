@@ -7,6 +7,7 @@ import type { ValidationReport } from "@/types/mml";
 import type { ChatMessage, LogEntry } from "@/types/chat";
 import type { RendererOptions } from "@/lib/renderer/engine";
 import { DEFAULT_RENDERER_OPTIONS } from "@/lib/renderer/engine";
+import type { BlueprintJSON, ValidationIssue, PatchOperation } from "@/types/blueprint";
 
 // ─── Panel Layout ─────────────────────────────────────────────────────────
 interface PanelSizes {
@@ -77,6 +78,15 @@ interface EditorState {
 
   // Sandbox
   sandboxReady: boolean;
+
+  // Blueprint / Scene State
+  currentBlueprint: BlueprintJSON | null;
+  lastValidMml: string;
+  validationIssues: ValidationIssue[];
+  manualEditMode: boolean;
+  blueprintOutOfSync: boolean;
+  pendingDiff: { oldMml: string; newMml: string } | null;
+  lastAiResponse: { type: string; explain?: { reasoning?: string[]; changes?: string[]; blueprintSummary?: string[] }; patch?: PatchOperation[] } | null;
 }
 
 interface EditorActions {
@@ -133,6 +143,18 @@ interface EditorActions {
   // Sandbox
   setSandboxReady: (ready: boolean) => void;
 
+  // Blueprint / Scene State
+  setBlueprint: (bp: BlueprintJSON | null) => void;
+  setLastValidMml: (mml: string) => void;
+  setValidationIssues: (issues: ValidationIssue[]) => void;
+  setManualEditMode: (v: boolean) => void;
+  setBlueprintOutOfSync: (v: boolean) => void;
+  setPendingDiff: (diff: { oldMml: string; newMml: string } | null) => void;
+  acceptDiff: () => void;
+  rejectDiff: () => void;
+  setLastAiResponse: (resp: EditorState["lastAiResponse"]) => void;
+  resyncFromBlueprint: (mml: string) => void;
+
   // Helpers
   getActiveProject: () => Project | null;
   getActiveFile: () => ProjectFile | null;
@@ -167,6 +189,15 @@ export const useEditorStore = create<StoreState>()(
       sidebarTab: "agent",
       inspectorTab: "validation",
       sandboxReady: true,
+
+      // Blueprint / Scene State
+      currentBlueprint: null,
+      lastValidMml: "",
+      validationIssues: [],
+      manualEditMode: false,
+      blueprintOutOfSync: false,
+      pendingDiff: null,
+      lastAiResponse: null,
 
       // ── Project Actions ───────────────────────────────────────────────
       createProject: (name, mode) => {
@@ -346,6 +377,47 @@ export const useEditorStore = create<StoreState>()(
 
       // ── Sandbox ───────────────────────────────────────────────────────
       setSandboxReady: (ready) => set({ sandboxReady: ready }),
+
+      // ── Blueprint / Scene State ─────────────────────────────────────────
+      setBlueprint: (bp) => set({ currentBlueprint: bp }),
+      setLastValidMml: (mml) => set({ lastValidMml: mml }),
+      setValidationIssues: (issues) => set({ validationIssues: issues }),
+      setManualEditMode: (v) => set({ manualEditMode: v }),
+      setBlueprintOutOfSync: (v) => set({ blueprintOutOfSync: v }),
+      setPendingDiff: (diff) => set({ pendingDiff: diff }),
+      setLastAiResponse: (resp) => set({ lastAiResponse: resp }),
+
+      acceptDiff: () => {
+        const s = get();
+        if (!s.pendingDiff) return;
+        const project = s.getActiveProject();
+        if (!project) return;
+        const mmlFile = project.files.find((f) => f.name === "scene.mml");
+        if (mmlFile) {
+          s.updateFileContent(project.id, mmlFile.id, s.pendingDiff.newMml);
+        }
+        set({
+          lastValidMml: s.pendingDiff.newMml,
+          pendingDiff: null,
+        });
+      },
+
+      rejectDiff: () => set({ pendingDiff: null }),
+
+      resyncFromBlueprint: (mml) => {
+        const s = get();
+        const project = s.getActiveProject();
+        if (!project) return;
+        const mmlFile = project.files.find((f) => f.name === "scene.mml");
+        if (mmlFile) {
+          s.updateFileContent(project.id, mmlFile.id, mml);
+        }
+        set({
+          lastValidMml: mml,
+          manualEditMode: false,
+          blueprintOutOfSync: false,
+        });
+      },
 
       // ── Helpers ───────────────────────────────────────────────────────
       getActiveProject: () => {

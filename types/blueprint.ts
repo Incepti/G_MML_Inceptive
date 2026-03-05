@@ -1,0 +1,173 @@
+import { z } from "zod";
+
+// ─── Blueprint Transform ─────────────────────────────────────────────────────
+export const TransformSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  z: z.number().default(0),
+  rx: z.number().default(0),
+  ry: z.number().default(0),
+  rz: z.number().default(0),
+  sx: z.number().default(1),
+  sy: z.number().default(1),
+  sz: z.number().default(1),
+});
+
+export type Transform = z.infer<typeof TransformSchema>;
+
+// ─── Blueprint Geometry ──────────────────────────────────────────────────────
+export const GeometrySchema = z.object({
+  kind: z.enum(["cube", "cylinder", "sphere", "plane"]),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  depth: z.number().optional(),
+  radius: z.number().optional(),
+});
+
+export type Geometry = z.infer<typeof GeometrySchema>;
+
+// ─── Blueprint Material ─────────────────────────────────────────────────────
+export const MaterialSchema = z.object({
+  color: z.string().default("#888888"),
+  opacity: z.number().min(0).max(1).optional(),
+  metalness: z.number().min(0).max(1).optional(),
+  roughness: z.number().min(0).max(1).optional(),
+  emissive: z.string().optional(),
+  emissiveIntensity: z.number().optional(),
+});
+
+export type Material = z.infer<typeof MaterialSchema>;
+
+// ─── Blueprint Structure (recursive) ────────────────────────────────────────
+export const StructureTypeEnum = z.enum([
+  "wall", "tower", "building", "room", "door", "window", "prop",
+  "clockTower", "light", "fence", "gate", "roof", "floor", "pillar",
+  "arch", "stair", "bridge", "tree", "rock", "water", "lamp",
+  "bench", "table", "chair", "sign", "barrel", "crate", "vehicle",
+  "custom",
+]);
+
+export type StructureType = z.infer<typeof StructureTypeEnum>;
+
+// Define the base structure without children for recursion
+const BaseStructureSchema = z.object({
+  id: z.string(),
+  type: StructureTypeEnum,
+  transform: TransformSchema.default({}),
+  geometry: GeometrySchema.optional(),
+  material: MaterialSchema.optional(),
+  lightProps: z.object({
+    type: z.enum(["point", "directional", "spot"]).default("point"),
+    intensity: z.number().default(1),
+    color: z.string().default("#ffffff"),
+    distance: z.number().optional(),
+    angle: z.number().optional(),
+  }).optional(),
+  modelSrc: z.string().optional(),
+  label: z.string().optional(),
+});
+
+export type BlueprintStructure = z.infer<typeof BaseStructureSchema> & {
+  children?: BlueprintStructure[];
+};
+
+// Use z.ZodType with any for input to avoid recursive default inference issues
+export const BlueprintStructureSchema: z.ZodType<BlueprintStructure, z.ZodTypeDef, unknown> = BaseStructureSchema.extend({
+  children: z.lazy(() => BlueprintStructureSchema.array()).optional(),
+}) as z.ZodType<BlueprintStructure, z.ZodTypeDef, unknown>;
+
+// ─── Blueprint Ground ───────────────────────────────────────────────────────
+export const GroundSchema = z.object({
+  type: z.literal("plane").default("plane"),
+  width: z.number().default(50),
+  height: z.number().default(50),
+  color: z.string().default("#3a3a3a"),
+  y: z.number().default(0),
+});
+
+export type Ground = z.infer<typeof GroundSchema>;
+
+// ─── Blueprint Scene ────────────────────────────────────────────────────────
+export const SceneSchema = z.object({
+  rootId: z.string().default("root"),
+  ground: GroundSchema.optional(),
+  structures: BlueprintStructureSchema.array().default([]),
+});
+
+// ─── Blueprint Budgets ──────────────────────────────────────────────────────
+export const BudgetsSchema = z.object({
+  maxLights: z.number().max(8).default(8),
+  maxModels: z.number().max(100).default(100),
+  maxEntities: z.number().max(500).default(500),
+});
+
+export type Budgets = z.infer<typeof BudgetsSchema>;
+
+// ─── Blueprint Meta ─────────────────────────────────────────────────────────
+export const MetaSchema = z.object({
+  title: z.string().default("Untitled Scene"),
+  units: z.literal("meters").default("meters"),
+  scaleProfile: z.enum(["human", "miniature", "large"]).default("human"),
+  seed: z.string().default("default-seed"),
+});
+
+export type Meta = z.infer<typeof MetaSchema>;
+
+// ─── Full BlueprintJSON ─────────────────────────────────────────────────────
+export const BlueprintSchema = z.object({
+  meta: MetaSchema.default({}),
+  budgets: BudgetsSchema.default({}),
+  scene: SceneSchema.default({}),
+});
+
+export type BlueprintJSON = z.infer<typeof BlueprintSchema>;
+
+// ─── AI Response Types ──────────────────────────────────────────────────────
+export interface PatchOperation {
+  op: "add" | "remove" | "replace";
+  path: string;
+  value?: unknown;
+}
+
+export interface AiNewSceneResponse {
+  type: "NEW_SCENE";
+  blueprint: BlueprintJSON;
+  explain: {
+    reasoning: string[];
+    blueprintSummary: string[];
+  };
+}
+
+export interface AiPatchResponse {
+  type: "PATCH";
+  patch: PatchOperation[];
+  explain: {
+    reasoning: string[];
+    changes: string[];
+  };
+}
+
+export interface AiErrorResponse {
+  type: "ERROR";
+  error: string;
+  details?: unknown;
+}
+
+export type AiResponse = AiNewSceneResponse | AiPatchResponse | AiErrorResponse;
+
+// ─── Validation Issue ───────────────────────────────────────────────────────
+export interface ValidationIssue {
+  severity: "error" | "warn";
+  message: string;
+  nodeHint?: string;
+}
+
+// ─── Scene State ────────────────────────────────────────────────────────────
+export interface SceneState {
+  blueprint: BlueprintJSON | null;
+  mml: string;
+  lastValidMml: string;
+  errors: ValidationIssue[];
+  manualEditMode: boolean;
+  blueprintOutOfSync: boolean;
+}

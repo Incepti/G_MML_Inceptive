@@ -8,6 +8,7 @@ import { ResizeHandle } from "@/components/layout/ResizeHandle";
 import { RightSidebar } from "@/components/layout/RightSidebar";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { MonacoEditorPanel } from "@/components/editor/MonacoEditor";
+import { DiffViewer } from "@/components/editor/DiffViewer";
 
 // SSR-disabled for Three.js
 const ThreeViewport = dynamic(
@@ -210,7 +211,7 @@ function CodeEditorPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden">
+    <div className="flex flex-col h-full w-full overflow-hidden relative">
       {/* File Tabs */}
       <div className="flex items-center bg-editor-sidebar border-b border-editor-border shrink-0">
         {project?.files.map((f) => (
@@ -254,6 +255,9 @@ function CodeEditorPanel() {
           errors={lastValidation?.errors || []}
         />
       </div>
+
+      {/* Diff Overlay */}
+      <DiffViewer />
     </div>
   );
 }
