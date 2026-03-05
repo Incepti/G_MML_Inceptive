@@ -436,7 +436,7 @@ CRITICAL RULES:
 5. For m-model src, use ONLY URLs from the VERIFIED_ASSET_CATALOG. NEVER fabricate .glb URLs. If no model fits, use primitives with colors.
 6. Do NOT add a separate ground plane or floor — the environment already provides one.
 7. Do NOT use m-attr-anim unless the user explicitly asks for animation, movement, or dynamic effects.
-8. Build RICH, DETAILED scenes — use 15-30+ elements with varied colors, sizes, positions. Compose complex objects from multiple primitives.
+8. Build EXTREMELY DETAILED scenes — use 30-50+ elements minimum. Every object must be composed from MULTIPLE primitives (a couch needs 15+ parts: base, cushions, armrests, legs, pillows). Add surrounding context objects (side tables, lamps, rugs, wall art, plants). Use varied colors, metalness, roughness, opacity for realism. Every primitive needs cast-shadows="true" receive-shadows="true". Use 3-5 lights minimum.
 
 IMPORTANT: The mmlHtml field must contain ONLY raw MML tags (e.g. <m-group>...). Do NOT wrap in <!DOCTYPE html>, <html>, <head>, or <body> tags.
 
@@ -471,8 +471,8 @@ export async function generateMML(req: GenerateRequest): Promise<GenerateResult>
       model: targetModel,
       system: systemPrompt,
       messages,
-      temperature: 0,
-      max_tokens: 8192,
+      temperature: 0.3,
+      max_tokens: 16384,
     });
     const textBlock = response.content.find((b) => b.type === "text");
     return textBlock ? textBlock.text : "";
