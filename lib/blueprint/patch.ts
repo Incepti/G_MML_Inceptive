@@ -1,10 +1,10 @@
-import { applyPatch, type Operation } from "fast-json-patch";
+import { applyPatch, type Operation, JsonPatchError, validate as validatePatch } from "fast-json-patch";
 import type { BlueprintJSON, PatchOperation } from "@/types/blueprint";
 import { validateBlueprint } from "./schema";
 
 /**
  * Apply JSON Patch (RFC6902) operations to a blueprint.
- * Validates the result against the schema.
+ * Validates the patch first, applies it, then validates the resulting blueprint.
  */
 export function applyBlueprintPatch(
   blueprint: BlueprintJSON,
@@ -16,6 +16,10 @@ export function applyBlueprintPatch(
   ok: false;
   errors: string[];
 } {
+  if (!Array.isArray(patch) || patch.length === 0) {
+    return { ok: false, errors: ["Patch is empty or not an array"] };
+  }
+
   try {
     // Deep clone to avoid mutation
     const clone = JSON.parse(JSON.stringify(blueprint)) as BlueprintJSON;
@@ -28,21 +32,31 @@ export function applyBlueprintPatch(
       return { op: p.op, path: p.path, value: p.value };
     });
 
-    const result = applyPatch(clone, ops, true, false);
-
-    // Check for errors in patch application
-    const patchErrors = result
-      .filter((r) => r !== null && r !== undefined)
-      .map((r) => String(r));
-
-    if (patchErrors.length > 0) {
-      return { ok: false, errors: patchErrors };
+    // Pre-validate patch operations before applying
+    const validationError = validatePatch(ops, clone);
+    if (validationError) {
+      const errDetail = validationError instanceof JsonPatchError
+        ? `${validationError.message} (op: ${validationError.operation?.op}, path: ${validationError.operation?.path})`
+        : JSON.stringify(validationError, null, 2);
+      return { ok: false, errors: [`Patch validation failed: ${errDetail}`] };
     }
+
+    // Apply patch — mutateDocument=true since we already cloned
+    applyPatch(clone, ops, false, true);
 
     // Validate the patched blueprint against schema
     return validateBlueprint(clone);
   } catch (e) {
-    return { ok: false, errors: [`Patch application failed: ${e}`] };
+    // Produce a readable error, never [object Object]
+    let errMsg: string;
+    if (e instanceof JsonPatchError) {
+      errMsg = `Patch failed at path "${e.operation?.path}": ${e.message}`;
+    } else if (e instanceof Error) {
+      errMsg = `Patch application failed: ${e.message}`;
+    } else {
+      errMsg = `Patch application failed: ${JSON.stringify(e)}`;
+    }
+    return { ok: false, errors: [errMsg] };
   }
 }
 

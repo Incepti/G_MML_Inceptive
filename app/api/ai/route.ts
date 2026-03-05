@@ -268,6 +268,8 @@ export async function POST(req: NextRequest) {
       const mml = generateMml(bpResult.blueprint);
       const { fixedMml, issues } = validateAndFixMml(mml);
 
+      console.log(`[/api/ai] NEW_SCENE: "${bpResult.blueprint.meta.title}" — ${bpResult.blueprint.scene.structures.length} structures, ${fixedMml.length} chars MML, ${issues.length} validation issues`);
+
       return NextResponse.json({
         ...ns,
         blueprint: bpResult.blueprint,
@@ -276,9 +278,37 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // For PATCH: return the patch operations as-is (client applies them)
+    // For PATCH: validate patch structure before returning to client
     if (aiResponse.type === "PATCH") {
-      return NextResponse.json(aiResponse);
+      const pr = aiResponse as AiPatchResponse;
+
+      // Ensure patch is an array
+      if (!Array.isArray(pr.patch)) {
+        console.error("[/api/ai] PATCH response has non-array patch:", JSON.stringify(pr.patch));
+        return NextResponse.json(
+          { type: "ERROR", error: "LLM returned PATCH with invalid patch field (not an array)", details: JSON.stringify(pr.patch).slice(0, 500) },
+          { status: 200 }
+        );
+      }
+
+      // Validate each patch operation has required fields
+      const invalidOps = pr.patch.filter(
+        (op) => !op.op || !op.path || !["add", "remove", "replace"].includes(op.op)
+      );
+      if (invalidOps.length > 0) {
+        console.error("[/api/ai] PATCH has invalid operations:", JSON.stringify(invalidOps));
+        return NextResponse.json(
+          { type: "ERROR", error: `PATCH contains ${invalidOps.length} invalid operation(s)`, details: JSON.stringify(invalidOps, null, 2) },
+          { status: 200 }
+        );
+      }
+
+      console.log(`[/api/ai] PATCH: ${pr.patch.length} operations`);
+      for (const op of pr.patch) {
+        console.log(`  ${op.op.toUpperCase()} ${op.path}`);
+      }
+
+      return NextResponse.json(pr);
     }
 
     return NextResponse.json(aiResponse);

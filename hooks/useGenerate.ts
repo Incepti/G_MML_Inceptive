@@ -136,6 +136,9 @@ export function useGenerate() {
 
         const data = await res.json();
 
+        // Log the raw AI response type for debugging
+        store.addLog({ type: "ai", message: `[AI] response_type: ${data.type || "UNKNOWN"}` });
+
         if (data.type === "ERROR" || (!res.ok && data.type !== "ERROR")) {
           const errMsg = data.error || "Generation failed";
           store.setGenerationError(errMsg);
@@ -218,25 +221,47 @@ export function useGenerate() {
           const patch = data.patch as PatchOperation[];
           if (!currentBlueprint) {
             store.updateChatMessage(projectId, aiMessageId, {
-              content: "Error: Cannot apply patch — no existing blueprint",
-              reasoning: [{ title: "Error", content: "No blueprint to patch", status: "error" }],
+              content: "Error: Cannot apply patch — no existing blueprint. Try generating a new scene first.",
+              reasoning: [{ title: "Error", content: "No blueprint to patch. The AI tried to modify a scene but none exists yet.", status: "error" }],
             });
+            store.addLog({ type: "error", message: "[ERR] patch_no_blueprint: Cannot apply patch without an existing scene" });
             return;
           }
 
-          store.addLog({ type: "ai", message: `[AI] patch_applied: ${patch.length} operations` });
+          // Log AI response and patch operations for debugging
+          store.addLog({ type: "ai", message: `[AI] response_type: PATCH with ${patch.length} operation(s)` });
+          for (const op of patch) {
+            store.addLog({ type: "info", message: `[PATCH] ${op.op.toUpperCase()} ${op.path}${op.value !== undefined ? ` = ${JSON.stringify(op.value).slice(0, 120)}` : ""}` });
+          }
+
+          // Log blueprint state before patch
+          store.addLog({ type: "info", message: `[PATCH] blueprint_before: ${currentBlueprint.scene.structures.length} structures, title="${currentBlueprint.meta.title}"` });
 
           const patchResult = applyBlueprintPatch(currentBlueprint, patch);
           if (!patchResult.ok) {
+            // Readable error — never [object Object]
+            const errorDetails = patchResult.errors
+              .map((e) => typeof e === "string" ? e : JSON.stringify(e, null, 2))
+              .join("\n");
+
             store.updateChatMessage(projectId, aiMessageId, {
-              content: `Patch failed: ${patchResult.errors.join(", ")}`,
-              reasoning: [{ title: "Patch Error", content: patchResult.errors.join("\n"), status: "error" }],
+              content: `Patch failed — keeping previous scene. ${patchResult.errors.length} error(s).`,
+              reasoning: [
+                { title: "Patch Error", content: errorDetails, status: "error" },
+                { title: "Patch Operations", content: JSON.stringify(patch, null, 2), status: "error" },
+              ],
             });
-            store.addLog({ type: "error", message: `[ERR] parse_failure: ${patchResult.errors[0]}` });
+            store.addLog({ type: "error", message: `[ERR] patch_failed: ${errorDetails.slice(0, 300)}` });
+            store.addLog({ type: "error", message: `[ERR] patch_ops: ${JSON.stringify(patch)}` });
+            // Do NOT touch the blueprint or MML — keep previous scene intact
             return;
           }
 
           const newBlueprint = patchResult.blueprint;
+
+          // Log blueprint state after patch
+          store.addLog({ type: "info", message: `[PATCH] blueprint_after: ${newBlueprint.scene.structures.length} structures, title="${newBlueprint.meta.title}"` });
+
           const newMml = generateMml(newBlueprint);
           const { fixedMml, issues } = validateAndFixMml(newMml, store.lastValidMml);
 
@@ -264,7 +289,7 @@ export function useGenerate() {
           const legacyBlueprint = blueprintToLegacySceneBlueprint(newBlueprint);
 
           store.updateChatMessage(projectId, aiMessageId, {
-            content: `Scene updated: ${patch.length} changes applied`,
+            content: `Scene updated: ${patch.length} change(s) applied`,
             reasoning: reasoning.length > 0 ? reasoning : [{ title: "Complete", content: "Patch applied.", status: "complete" }],
             generatedMml: fixedMml,
             blueprint: legacyBlueprint,
