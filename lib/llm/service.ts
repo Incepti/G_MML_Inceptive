@@ -91,6 +91,31 @@ function stripAttrAnim(html: string): string {
     .replace(/\n\s*\n/g, "\n"); // clean up blank lines
 }
 
+// ─── Strip forbidden attributes from generated MML (server-side audit) ────
+const FORBIDDEN_ATTR_NAMES = [
+  "cast-shadows", "receive-shadows", "penumbra", "shadow",
+  "align", "text", "onclick", "onmouseenter", "onmouseleave",
+  "oncollisionstart", "oncollisionmove", "oncollisionend",
+];
+
+function stripForbiddenAttrs(html: string): string {
+  let result = html;
+  for (const attr of FORBIDDEN_ATTR_NAMES) {
+    // Match attr="value" or attr='value' or standalone attr
+    result = result.replace(new RegExp(`\\s+${attr}(?:="[^"]*"|='[^']*'|=[^\\s>]*)`, "gi"), "");
+  }
+  return result;
+}
+
+// ─── Fix m-label text= → content= ────────────────────────────────────────
+function fixLabelAttrs(html: string): string {
+  // Replace text="..." with content="..." on m-label tags
+  return html.replace(
+    /(<m-label\b[^>]*)\btext=/gi,
+    "$1content="
+  );
+}
+
 function normalizeSuccess(
   parsed: Exclude<LLMOutput, { error: string }>,
   req: GenerateRequest,
@@ -110,11 +135,19 @@ function normalizeSuccess(
     })
   );
 
-  // Strip animations if user didn't ask for them
+  // ── Server-side audit pipeline (Step 5) ──
   let finalHtml = parsed.mmlHtml;
+
+  // 1. Strip animations if user didn't ask for them
   if (!userWantsAnimation(req.prompt)) {
     finalHtml = stripAttrAnim(finalHtml);
   }
+
+  // 2. Strip all forbidden attributes
+  finalHtml = stripForbiddenAttrs(finalHtml);
+
+  // 3. Fix m-label text= → content=
+  finalHtml = fixLabelAttrs(finalHtml);
 
   const report = validateMML(finalHtml, parsed.jsModule);
 
@@ -403,53 +436,55 @@ function buildUserMessage(req: GenerateRequest): string {
 
   const manifestSummary =
     req.assetManifest.length > 0
-      ? `\n\n## Available Assets (use ONLY these URLs)\n${req.assetManifest
+      ? `\n\nAvailable Assets (use ONLY these URLs):\n${req.assetManifest
         .map((a) => `- ${a.name}: ${a.url} (${a.mimeType}, ${a.sizeBytes} bytes)`)
         .join("\n")}`
-      : "\n\n## Available Assets\nNo manifest provided.";
+      : "";
 
-  const geezBaseNote = hasGeez
-    ? "\n\n## Geez Collection\nUser requested Geez/Otherside assets. Use: https://storage.googleapis.com/geez-public/GLB_MML/{ID}.glb (ID 0–5555). Pick IDs deterministically."
-    : "\n\n## Geez Constraint\nDo NOT use Geez URLs (storage.googleapis.com/geez-public/) unless the user explicitly mentions 'geez' or 'otherside'. Use ONLY the VERIFIED_ASSET_CATALOG from the system prompt.";
-
-  const fallbackNote = "\n\n## Asset Rule\nFor 3D models, use ONLY URLs from the VERIFIED_ASSET_CATALOG in the system prompt. If no model in the catalog fits, use primitives (m-cube, m-sphere, m-cylinder, m-plane) with colors. NEVER fabricate or guess a .glb URL.";
+  const geezNote = hasGeez
+    ? "\n\nGeez Collection: User requested Geez/Otherside assets. Use: https://storage.googleapis.com/geez-public/GLB_MML/{ID}.glb (ID 0–5555). Pick IDs deterministically."
+    : "";
 
   const contextSection = req.projectContext
-    ? `\n\n## Existing Project Context\n${req.projectContext}`
+    ? `\n\nExisting Project Context:\n${req.projectContext}`
     : "";
 
   const existingSection = req.existingMML
-    ? `\n\n## Existing MML (modify or extend this)\n\`\`\`html\n${req.existingMML}\n\`\`\``
+    ? `\n\nExisting MML (modify or extend this):\n${req.existingMML}`
     : "";
 
   const wantsAnim = userWantsAnimation(req.prompt);
   const allowedTagsList = wantsAnim
     ? "m-group, m-cube, m-sphere, m-cylinder, m-plane, m-model, m-character, m-light, m-image, m-video, m-label, m-prompt, m-attr-anim"
     : "m-group, m-cube, m-sphere, m-cylinder, m-plane, m-model, m-character, m-light, m-image, m-video, m-label, m-prompt";
+
   const animRule = wantsAnim
     ? ""
-    : "\n7. ABSOLUTELY NO m-attr-anim tags. Do NOT add ANY animation. The scene must be 100% static. If you include any m-attr-anim tag, the output will be rejected.";
+    : `
+- ABSOLUTELY NO m-attr-anim tags. The scene must be 100% static. Any m-attr-anim tag = REJECTED.`;
 
-  return `Generate MML Alpha code for the following request:
+  return `USER PROMPT: ${req.prompt}
+${manifestSummary}${geezNote}${contextSection}${existingSection}
 
-${req.prompt}
-${manifestSummary}${geezBaseNote}${fallbackNote}
-${contextSection}
-${existingSection}
+Follow the 5-step pipeline from your system instructions.
 
-CRITICAL RULES:
-1. ONLY USE THESE TAGS: ${allowedTagsList}.
-2. NEVER USE: m-audio, m-link, m-interaction, m-chat-probe, m-position-probe, m-attr-lerp.
-3. m-light type MUST BE EXACTLY ONE OF: point, directional, spot. (Do not use "ambient").
-4. HARD CAPS: Lights ≤8, Models ≤100, Physics bodies ≤150, Particles ≤800. Do NOT exceed these.
-5. For m-model src, use ONLY URLs from the VERIFIED_ASSET_CATALOG. NEVER fabricate .glb URLs. If no model fits, use primitives with colors.
-6. Do NOT add a separate ground plane or floor — the environment already provides one.${animRule}
-8. Build EXTREMELY DETAILED scenes — use 30-50+ elements minimum. Every object must be composed from MULTIPLE primitives (a couch needs 15+ parts: base, cushions, armrests, legs, pillows). Add surrounding context objects (side tables, lamps, rugs, wall art, plants). Use varied colors, metalness, roughness, opacity for realism. Use 3-5 lights minimum. NEVER use these unsupported attributes: cast-shadows, receive-shadows, penumbra, shadow, align, text.
-9. m-label uses content= attribute (NOT text=). Example: <m-label content="Hello" color="#fff" font-size="0.3"></m-label>
+ENFORCEMENT RULES:
+- ONLY these tags: ${allowedTagsList}
+- FORBIDDEN tags: m-audio, m-link, m-interaction, m-chat-probe, m-position-probe, m-attr-lerp
+- FORBIDDEN attributes: cast-shadows, receive-shadows, penumbra, shadow, align, text, onclick
+- m-light type: point | directional | spot (NO "ambient")
+- m-label: use content= (NEVER text=)
+- m-attr-anim: use attr, start, end, duration, loop, easing (NEVER values, dur, repeat)${animRule}
+- HARD CAPS: Lights ≤8, Models ≤100
+- Scene MUST start with a root <m-group>
+- No ground plane or floor (environment provides one)
+- For m-model src: ONLY use VERIFIED_ASSET_CATALOG URLs or primitives. NEVER fabricate URLs.
+- Build EXTREMELY DETAILED scenes: 30-50+ elements, every object composed from multiple primitives
+- Use varied colors, metalness, roughness, opacity for realism. Use 3-5 lights minimum.
 
-IMPORTANT: The mmlHtml field must contain ONLY raw MML tags (e.g. <m-group>...). Do NOT wrap in <!DOCTYPE html>, <html>, <head>, or <body> tags.
+BEFORE returning your JSON, audit the code: verify no forbidden tags, no forbidden attributes, correct m-label syntax, correct m-attr-anim syntax, light count ≤8, root m-group present.
 
-Remember: Follow the OUTPUT STRUCTURE strictly. Return ONLY valid JSON matching the output contract. No markdown, no extra text, no code fences — just the raw JSON object.`;
+OUTPUT: mmlHtml must contain ONLY raw MML tags (e.g. <m-group>...). No <!DOCTYPE>, <html>, <head>, <body>. Return ONLY the JSON contract — no markdown, no commentary.`;
 }
 
 export async function generateMML(req: GenerateRequest): Promise<GenerateResult> {

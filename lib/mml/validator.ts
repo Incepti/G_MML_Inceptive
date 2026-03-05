@@ -10,6 +10,13 @@ import { MML_ALLOWED_TAGS, MML_FORBIDDEN_TAGS, MML_CAPS } from "@/types/mml";
 import { parseMML } from "./parser";
 import type { MmlOutput } from "./outputContract";
 
+// ─── Forbidden attributes (NEVER allowed on any element) ──────────────────
+const FORBIDDEN_ATTRS = new Set([
+  "cast-shadows", "receive-shadows", "penumbra", "shadow",
+  "align", "text", "onclick", "onmouseenter", "onmouseleave",
+  "oncollisionstart", "oncollisionmove", "oncollisionend",
+]);
+
 // ─── Shared attribute sets ─────────────────────────────────────────────────
 const TRANSFORM_ATTRS = new Set([
   "id", "class",
@@ -17,9 +24,7 @@ const TRANSFORM_ATTRS = new Set([
   "rx", "ry", "rz",
   "sx", "sy", "sz",
   "visible",
-  "onclick", "onmouseenter", "onmouseleave",
   "collide", "collision-interval",
-  "oncollisionstart", "oncollisionmove", "oncollisionend",
   "debug",
 ]);
 
@@ -187,11 +192,21 @@ function validateNode(
     });
   }
 
+  // Forbidden attribute check (hard error)
+  for (const attr of Object.keys(node.attributes)) {
+    if (FORBIDDEN_ATTRS.has(attr)) {
+      errors.push({
+        type: "error", tag: node.tag, attribute: attr, line: node.line,
+        message: `Forbidden attribute '${attr}' on <${node.tag}> — not supported in MML Alpha`,
+      });
+    }
+  }
+
   // Undocumented attribute warnings
   const allowed = ALLOWED_ATTRS[node.tag];
   if (allowed) {
     for (const attr of Object.keys(node.attributes)) {
-      if (!allowed.has(attr)) {
+      if (!allowed.has(attr) && !FORBIDDEN_ATTRS.has(attr)) {
         warnings.push({
           type: "warning", tag: node.tag, attribute: attr, line: node.line,
           message: `Attribute '${attr}' is not documented for <${node.tag}>`,
@@ -580,6 +595,23 @@ export function validateMmlOutput(jsonText: string): { ok: boolean; errors: stri
     errors.push(`MML parse error: ${e}`);
     return { ok: false, errors, compliance };
   }
+
+  // Root m-group check
+  const hasRootGroup = parsedMml.nodes.length > 0 && parsedMml.nodes[0].tag === "m-group";
+  if (!hasRootGroup) {
+    errors.push("Scene must start with a root <m-group> element");
+  }
+
+  // Forbidden attribute scan
+  function scanForbiddenAttrs(node: MMLNode) {
+    for (const attr of Object.keys(node.attributes)) {
+      if (FORBIDDEN_ATTRS.has(attr)) {
+        errors.push(`Forbidden attribute '${attr}' on <${node.tag}>`);
+      }
+    }
+    node.children.forEach(scanForbiddenAttrs);
+  }
+  parsedMml.nodes.forEach(scanForbiddenAttrs);
 
   // Structural rules
   for (const node of parsedMml.nodes) {
