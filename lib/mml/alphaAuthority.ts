@@ -21,45 +21,83 @@ derived from it. Include the blueprint in your JSON output as the "blueprint" fi
 
 Blueprint structure:
 {
-  "environment": "<type>",       // "prison_complex", "forest_clearing", etc.
-  "zones": ["<zone1>", ...],    // logical areas of the scene
+  "environment": "<type>",
+  "zones": ["<zone1>", ...],
   "structures": [
     {
-      "type": "<name>",          // "watch_tower", "wall_segment", "tree"
-      "position": "<location>",  // "nw", "center", "x:5,y:0,z:-3"
-      "scale": "<size>",         // "small", "medium", "large", or numeric
-      "attributes": {},          // color, material hints
-      "children": [...]          // sub-structures (same shape)
+      "type": "<name>",
+      "position": "<location>",
+      "scale": "<size>",
+      "attributes": {},
+      "children": [...]
     }
   ],
-  "lighting": "<scheme>",       // "night", "sunset", "bright_day"
-  "mood": "<atmosphere>"         // "ominous", "peaceful", "energetic"
+  "lighting": "<scheme>",
+  "mood": "<atmosphere>"
 }
 
+ENVIRONMENT TEMPLATE SYSTEM:
+Identify the environment type and include ALL required subsystems:
+
+prison_complex:
+  REQUIRED: perimeter_walls(4 sides), watch_towers(4 corners), main_gate(1),
+  cell_blocks(2+, each with 4+ cells), central_courtyard(1), security_lighting(6+)
+
+castle:
+  REQUIRED: outer_walls(4 sides+battlements), corner_towers(4), gatehouse(1),
+  keep(1 multi-story), courtyard(1), great_hall(1 with pillars), battlements
+
+village:
+  REQUIRED: houses(5+ each with walls/roof/door/windows), market_square(1),
+  well(1), fences, paths, trees(3+), lamp_posts(4+)
+
+city_street:
+  REQUIRED: buildings(4+ multi-story), sidewalks(2), street_lamps(4+),
+  benches(2+), signs(2+), road(1), crosswalk(1)
+
+temple:
+  REQUIRED: main_hall(1 with pillars), pillars(6+), altar(1),
+  entrance_steps(1), roof(1), torches(4+)
+
+For unlisted environments: identify 5-8 subsystems, ensure all present.
+
+COMPOSITION LAW — NO SINGLE-CUBE BUILDINGS:
+• building/house → children: 4 walls + roof + door + windows(2+)
+• tower → children: base + shaft + platform + roof/cap + railing
+• cell_block → children: corridor + cells(4+), each cell → walls + door + window + bed
+• gate → children: pillars(2) + arch + door panels(2)
+• lamp_post → children: base + pole + shade + emissive bulb
+• tree → children: trunk + canopy spheres(2-3)
+
+REPETITION PATTERNS (use incremental offsets for rows):
+• Cell row: cell-1 z=0, cell-2 z=4, cell-3 z=8, cell-4 z=12
+• Wall segments: seg-1 x=-20, seg-2 x=-10, seg-3 x=0, seg-4 x=10, seg-5 x=20
+• Fence posts: post-1 x=0, post-2 x=2, post-3 x=4 ...
+
+SCALE REFERENCE (meters):
+  Perimeter wall: 8-10m high, 1-1.5m thick | Interior wall: 3-4m high
+  Door: 2m × 1m | Window: 1-1.5m × 0.8m | Table: 0.75m high
+  Chair: 0.45m | Bed: 0.5m high × 2m long | Tower: 12-20m total
+  Lamp post: 3-4m | Fence: 1.5m high | Tree trunk: 3-5m, canopy: 2-4m radius
+
 BLUEPRINT RULES:
-• MINIMUM 10-20 structures (each expands to multiple MML primitives)
+• MINIMUM 20 top-level structures (each with 3+ children for buildings/towers)
+• Total entities (structures + all nested children): 80-200+
 • Every structure MUST have type and position
 • Use zones to organize spatial layout logically
-• Children represent sub-parts (tower's spotlight, building's windows)
-• Positions: cardinal ("nw"), descriptive ("along_east_wall"), or numeric ("x:5,y:0,z:-3")
+• Positions: cardinal ("nw"), or numeric ("x:5,y:0,z:-3")
+• Perimeter at ±20 to ±30, center near origin, logical spatial grouping
+• Use 4-8 lights distributed across key areas
 
 ITERATIVE MODIFICATIONS:
-When modifying an existing scene, you will receive an EXISTING BLUEPRINT.
-Update the blueprint FIRST (add/remove/modify structures), then regenerate
-the FULL MML from the updated blueprint. Always include the COMPLETE updated
-blueprint — not just the changes.
+When modifying an existing scene, update the blueprint FIRST, then regenerate
+the FULL MML from the updated blueprint. Include the COMPLETE updated blueprint.
 
-DETAIL REQUIREMENTS (when converting blueprint to MML):
-• MINIMUM 30-50 MML elements per scene
-• Every structure expands to MULTIPLE primitives
-  - watch_tower: base (m-cube), shaft (m-cylinder), platform, roof, railing
-  - tree: trunk (m-cylinder), branch layers (m-spheres), leaf clusters
-  - lamp: base, pole (m-cylinder), shade, bulb (emissive m-sphere)
-• Use VARIED, REALISTIC colors with subtle differences
-  #8B4513 dark wood, #A0522D medium wood, #DEB887 light wood, #888888 metal
-• Material variation: metalness, roughness, emissive, opacity
-• Scale realistically: chair ~0.45m, table ~0.75m, door ~2m
-• Use 3-5 lights minimum
+MATERIAL & COLOR PALETTE (use varied, realistic colors):
+  Stone: #6B6B6B, #7A7A7A, #5C5C5C | Wood: #4A3728, #8B4513, #DEB887
+  Metal: #708090 metalness:0.8 | Brick: #8B4513, #A0522D
+  Roof: #654321, #8B0000 | Glass: #87CEEB opacity:0.4
+  Emissive: emissive:"#FFA500" emissiveIntensity:0.8
 
 ═══════════════════════════════════════════════════════════════
 STEP 3 — BLUEPRINT VALIDATION + ALPHA COMPLIANCE
@@ -111,15 +149,18 @@ Do NOT add a separate ground plane or floor — the environment already provides
 ═══════════════════════════════════════════════════════════════
 STEP 4 — BLUEPRINT → MML CODE GENERATION
 ═══════════════════════════════════════════════════════════════
-Convert the blueprint to MML code. Each blueprint structure becomes an m-group:
+Convert the blueprint to MML code using MODULAR COMPOSITION:
 • Root <m-group> wraps the entire scene
 • Each zone becomes a nested m-group (id="zone-{name}")
 • Each structure becomes a nested m-group (id="{type}-{position}")
-• Blueprint positions map to x/y/z coordinates
-• Blueprint scale maps to sx/sy/sz attributes
-• Blueprint attributes map to color, metalness, roughness, etc.
 • Children expand to sub-elements within the structure's m-group
-• Keep the code visually clear — the m-group hierarchy should mirror the blueprint
+• Buildings MUST decompose into walls + roof + door + windows (never one cube)
+• Towers MUST decompose into base + shaft + platform + railing
+• Use repeated m-groups for rows (cells, wall segments, fence posts)
+• Position children with incremental offsets for even spacing
+• MINIMUM 80 total MML elements (primitives + groups + lights)
+• Ensure proper y-stacking: roof.y = wall.height, platform.y = shaft.height
+• Use VARIED colors per material type — no monochrome buildings
 
 ═══════════════════════════════════════════════════════════════
 STEP 5 — AUTOMATIC CODE AUDIT

@@ -95,21 +95,45 @@ SUCCESS:
   "explanation": "Brief description of what was generated",
   "blueprint": {
     "environment": "prison_complex",
-    "zones": ["courtyard", "perimeter", "cell_block"],
+    "zones": ["courtyard", "perimeter", "cell_block_east", "cell_block_west"],
     "structures": [
       {
         "type": "watch_tower",
         "position": "nw",
         "scale": "large",
-        "attributes": {"color": "#555555", "material": "stone"},
+        "attributes": {"color": "#6B6B6B", "material": "stone"},
         "children": [
-          {"type": "spotlight", "position": "top", "attributes": {"intensity": "2"}}
+          {"type": "base", "position": "bottom", "attributes": {"width": "4", "height": "3"}},
+          {"type": "shaft", "position": "center", "attributes": {"radius": "1.5", "height": "10"}},
+          {"type": "platform", "position": "top", "attributes": {"width": "5", "height": "0.3"}},
+          {"type": "spotlight", "position": "top", "attributes": {"intensity": "2", "type": "spot"}}
+        ]
+      },
+      {
+        "type": "cell_block",
+        "position": "east",
+        "children": [
+          {"type": "corridor", "position": "center"},
+          {"type": "cell", "position": "z:0", "children": [
+            {"type": "wall", "position": "back"},
+            {"type": "door", "position": "front"},
+            {"type": "bed", "position": "corner"}
+          ]},
+          {"type": "cell", "position": "z:4"},
+          {"type": "cell", "position": "z:8"},
+          {"type": "cell", "position": "z:12"}
         ]
       }
     ],
     "lighting": "night",
     "mood": "ominous"
   },
+
+  IMPORTANT: blueprint.structures MUST contain COMPOSED structures with children.
+  Buildings are NEVER single primitives — they are made of walls, roof, doors, windows.
+  Towers are NEVER single cubes — they have base, shaft, platform, railing, spotlight.
+  Minimum 20 top-level structures, each with 3+ children for buildings/towers.
+  Total elements across all structures and children: 80-200+.
   "reasoning": {
     "steps": [
       {"title": "Scene Blueprint", "content": "Structured blueprint of the scene layout"},
