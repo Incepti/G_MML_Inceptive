@@ -25,7 +25,7 @@ const TYPE_LABELS: Record<LogEntry["type"], string> = {
 type FilterType = "all" | LogEntry["type"];
 
 export function LogsPanel() {
-  const { logs, panelSizes, toggleLogsPanel, clearLogs } = useEditorStore();
+  const { logs, clearLogs } = useEditorStore();
   const [filter, setFilter] = useState<FilterType>("all");
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -39,23 +39,6 @@ export function LogsPanel() {
     }
   }, [logs.length]);
 
-  if (panelSizes.logsCollapsed) {
-    return (
-      <div className="h-7 flex items-center px-3 bg-editor-sidebar border-t border-editor-border shrink-0">
-        <button
-          onClick={toggleLogsPanel}
-          className="text-[10px] text-editor-text-muted hover:text-editor-text transition-colors flex items-center gap-1"
-        >
-          <span>▶</span>
-          <span className="uppercase tracking-wider font-semibold">Logs</span>
-          {logs.length > 0 && (
-            <span className="text-editor-accent ml-1">({logs.length})</span>
-          )}
-        </button>
-      </div>
-    );
-  }
-
   const filters: { key: FilterType; label: string }[] = [
     { key: "all", label: "All" },
     { key: "ai", label: "AI" },
@@ -65,19 +48,12 @@ export function LogsPanel() {
   ];
 
   return (
-    <div
-      className="flex flex-col bg-editor-sidebar border-t border-editor-border shrink-0"
-      style={{ height: panelSizes.logsHeight }}
-    >
+    <div className="flex flex-col h-full w-full bg-editor-sidebar">
       {/* Header */}
       <div className="flex items-center px-3 py-1.5 border-b border-editor-border shrink-0 gap-2">
-        <button
-          onClick={toggleLogsPanel}
-          className="text-[10px] text-editor-text-muted hover:text-editor-text transition-colors flex items-center gap-1"
-        >
-          <span>▼</span>
-          <span className="uppercase tracking-wider font-semibold">Logs</span>
-        </button>
+        <span className="text-[10px] text-editor-text-muted uppercase tracking-wider font-semibold">
+          Debug Logs
+        </span>
 
         {/* Filters */}
         <div className="flex gap-1 ml-3">

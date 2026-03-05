@@ -10,17 +10,17 @@ import { DEFAULT_RENDERER_OPTIONS } from "@/lib/renderer/engine";
 
 // ─── Panel Layout ─────────────────────────────────────────────────────────
 interface PanelSizes {
-  agentWidth: number;
-  viewerPercent: number;
-  logsHeight: number;
-  logsCollapsed: boolean;
+  sidebarWidth: number;      // right sidebar width in px
+  topRowPercent: number;     // vertical split: top row height %
+  viewerPercent: number;     // top row horizontal split: scene editor %
+  editorPercent: number;     // bottom row horizontal split: code editor %
 }
 
 const DEFAULT_PANEL_SIZES: PanelSizes = {
-  agentWidth: 320,
-  viewerPercent: 38,
-  logsHeight: 160,
-  logsCollapsed: false,
+  sidebarWidth: 320,
+  topRowPercent: 55,
+  viewerPercent: 50,
+  editorPercent: 55,
 };
 
 // ─── Editor State ─────────────────────────────────────────────────────────
@@ -71,8 +71,8 @@ interface EditorState {
   assetDrawerOpen: boolean;
   settingsOpen: boolean;
 
-  // UI State (legacy, kept for backward compat)
-  sidebarTab: "explorer" | "assets";
+  // UI State
+  sidebarTab: "inspector" | "agent";
   inspectorTab: "properties" | "manifest" | "validation";
 
   // Sandbox
@@ -123,12 +123,11 @@ interface EditorActions {
 
   // Layout
   setPanelSizes: (sizes: Partial<PanelSizes>) => void;
-  toggleLogsPanel: () => void;
   setAssetDrawerOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
 
-  // UI (legacy)
-  setSidebarTab: (tab: "explorer" | "assets") => void;
+  // UI
+  setSidebarTab: (tab: "inspector" | "agent") => void;
   setInspectorTab: (tab: "properties" | "manifest" | "validation") => void;
 
   // Sandbox
@@ -165,7 +164,7 @@ export const useEditorStore = create<StoreState>()(
       panelSizes: DEFAULT_PANEL_SIZES,
       assetDrawerOpen: false,
       settingsOpen: false,
-      sidebarTab: "explorer",
+      sidebarTab: "agent",
       inspectorTab: "validation",
       sandboxReady: true,
 
@@ -338,15 +337,10 @@ export const useEditorStore = create<StoreState>()(
       setPanelSizes: (sizes) =>
         set((s) => ({ panelSizes: { ...s.panelSizes, ...sizes } })),
 
-      toggleLogsPanel: () =>
-        set((s) => ({
-          panelSizes: { ...s.panelSizes, logsCollapsed: !s.panelSizes.logsCollapsed },
-        })),
-
       setAssetDrawerOpen: (open) => set({ assetDrawerOpen: open }),
       setSettingsOpen: (open) => set({ settingsOpen: open }),
 
-      // ── UI (legacy) ───────────────────────────────────────────────────
+      // ── UI ────────────────────────────────────────────────────────────
       setSidebarTab: (tab) => set({ sidebarTab: tab }),
       setInspectorTab: (tab) => set({ inspectorTab: tab }),
 

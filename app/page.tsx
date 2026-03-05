@@ -3,9 +3,9 @@
 import React, { useEffect, useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useEditorStore } from "@/lib/store";
-import { AIAgentPanel } from "@/components/chat/AIAgentPanel";
 import { LogsPanel } from "@/components/logs/LogsPanel";
 import { ResizeHandle } from "@/components/layout/ResizeHandle";
+import { RightSidebar } from "@/components/layout/RightSidebar";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { MonacoEditorPanel } from "@/components/editor/MonacoEditor";
 
@@ -103,7 +103,49 @@ function Titlebar() {
   );
 }
 
-// ─── Code Editor Panel ─────────────────────────────────────────────────────
+// ─── Scene Editor Panel (top-left) ────────────────────────────────────────
+function SceneEditorPanel() {
+  const { getActiveProject } = useEditorStore();
+  const project = getActiveProject();
+  const mmlFile = project?.files.find((f) => f.name === "scene.mml");
+  const mml = mmlFile?.content || "";
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex items-center px-3 py-1 border-b border-editor-border shrink-0">
+        <span className="text-[10px] text-editor-text-muted uppercase tracking-wider font-semibold">
+          Scene Editor
+        </span>
+      </div>
+      <div className="flex-1 overflow-hidden relative">
+        <ThreeViewport mmlHtml={mml} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Play Viewer Panel (top-right) ────────────────────────────────────────
+function PlayViewerPanel() {
+  const { getActiveProject } = useEditorStore();
+  const project = getActiveProject();
+  const mmlFile = project?.files.find((f) => f.name === "scene.mml");
+  const mml = mmlFile?.content || "";
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex items-center px-3 py-1 border-b border-editor-border shrink-0">
+        <span className="text-[10px] text-editor-text-muted uppercase tracking-wider font-semibold">
+          Play
+        </span>
+      </div>
+      <div className="flex-1 overflow-hidden relative">
+        <ThreeViewport mmlHtml={mml} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Code Editor Panel (bottom-left) ──────────────────────────────────────
 function CodeEditorPanel() {
   const {
     getActiveFile,
@@ -168,7 +210,7 @@ function CodeEditorPanel() {
   }
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
+    <div className="flex flex-col h-full w-full overflow-hidden">
       {/* File Tabs */}
       <div className="flex items-center bg-editor-sidebar border-b border-editor-border shrink-0">
         {project?.files.map((f) => (
@@ -216,20 +258,6 @@ function CodeEditorPanel() {
   );
 }
 
-// ─── Viewer Panel ──────────────────────────────────────────────────────────
-function ViewerPanel() {
-  const { getActiveProject } = useEditorStore();
-  const project = getActiveProject();
-  const mmlFile = project?.files.find((f) => f.name === "scene.mml");
-  const mml = mmlFile?.content || "";
-
-  return (
-    <div className="h-full overflow-hidden relative">
-      <ThreeViewport mmlHtml={mml} />
-    </div>
-  );
-}
-
 // ─── Main Page ─────────────────────────────────────────────────────────────
 export default function StudioPage() {
   const [mounted, setMounted] = useState(false);
@@ -239,36 +267,56 @@ export default function StudioPage() {
     setMounted(true);
   }, []);
 
-  const handleAgentResize = useCallback(
+  // Top row: horizontal split between Scene Editor and Play Viewer
+  const handleTopHorizontalResize = useCallback(
     (delta: number) => {
-      setPanelSizes({
-        agentWidth: Math.max(220, Math.min(600, panelSizes.agentWidth + delta)),
-      });
-    },
-    [panelSizes.agentWidth, setPanelSizes]
-  );
-
-  const handleViewerResize = useCallback(
-    (delta: number) => {
-      // Convert pixel delta to percentage
-      const container = document.querySelector(".studio-main");
+      const container = document.querySelector(".studio-top-row");
       if (!container) return;
       const totalWidth = container.clientWidth;
-      const percentDelta = (delta / totalWidth) * -100;
+      const percentDelta = (delta / totalWidth) * 100;
       setPanelSizes({
-        viewerPercent: Math.max(20, Math.min(60, panelSizes.viewerPercent + percentDelta)),
+        viewerPercent: Math.max(25, Math.min(75, panelSizes.viewerPercent + percentDelta)),
       });
     },
     [panelSizes.viewerPercent, setPanelSizes]
   );
 
-  const handleLogsResize = useCallback(
+  // Vertical split between top row and bottom row
+  const handleVerticalResize = useCallback(
     (delta: number) => {
+      const container = document.querySelector(".studio-main");
+      if (!container) return;
+      const totalHeight = container.clientHeight;
+      const percentDelta = (delta / totalHeight) * 100;
       setPanelSizes({
-        logsHeight: Math.max(80, Math.min(400, panelSizes.logsHeight - delta)),
+        topRowPercent: Math.max(25, Math.min(75, panelSizes.topRowPercent + percentDelta)),
       });
     },
-    [panelSizes.logsHeight, setPanelSizes]
+    [panelSizes.topRowPercent, setPanelSizes]
+  );
+
+  // Bottom row: horizontal split between Code Editor and Debug Logs
+  const handleBottomHorizontalResize = useCallback(
+    (delta: number) => {
+      const container = document.querySelector(".studio-bottom-row");
+      if (!container) return;
+      const totalWidth = container.clientWidth;
+      const percentDelta = (delta / totalWidth) * 100;
+      setPanelSizes({
+        editorPercent: Math.max(25, Math.min(75, panelSizes.editorPercent + percentDelta)),
+      });
+    },
+    [panelSizes.editorPercent, setPanelSizes]
+  );
+
+  // Sidebar width resize
+  const handleSidebarResize = useCallback(
+    (delta: number) => {
+      setPanelSizes({
+        sidebarWidth: Math.max(250, Math.min(500, panelSizes.sidebarWidth - delta)),
+      });
+    },
+    [panelSizes.sidebarWidth, setPanelSizes]
   );
 
   if (!mounted) {
@@ -285,33 +333,53 @@ export default function StudioPage() {
     <div className="flex flex-col h-screen overflow-hidden">
       <Titlebar />
 
-      {/* Main 3-column layout */}
-      <div className="flex flex-1 overflow-hidden studio-main">
-        {/* Left: AI Agent Panel */}
-        <div style={{ width: panelSizes.agentWidth }} className="shrink-0">
-          <AIAgentPanel />
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main 2x2 grid */}
+        <div className="flex-1 flex flex-col overflow-hidden studio-main">
+          {/* Top row: Scene Editor | Play Viewer */}
+          <div
+            className="flex overflow-hidden studio-top-row"
+            style={{ height: `${panelSizes.topRowPercent}%` }}
+          >
+            <div
+              className="overflow-hidden border-r border-editor-border"
+              style={{ width: `${panelSizes.viewerPercent}%` }}
+            >
+              <SceneEditorPanel />
+            </div>
+            <ResizeHandle direction="vertical" onResize={handleTopHorizontalResize} />
+            <div className="flex-1 overflow-hidden">
+              <PlayViewerPanel />
+            </div>
+          </div>
+
+          <ResizeHandle direction="horizontal" onResize={handleVerticalResize} />
+
+          {/* Bottom row: Code Editor | Debug Logs */}
+          <div className="flex-1 flex overflow-hidden studio-bottom-row border-t border-editor-border">
+            <div
+              className="overflow-hidden border-r border-editor-border"
+              style={{ width: `${panelSizes.editorPercent}%` }}
+            >
+              <CodeEditorPanel />
+            </div>
+            <ResizeHandle direction="vertical" onResize={handleBottomHorizontalResize} />
+            <div className="flex-1 overflow-hidden">
+              <LogsPanel />
+            </div>
+          </div>
         </div>
-        <ResizeHandle direction="vertical" onResize={handleAgentResize} />
 
-        {/* Center: Code Editor */}
-        <CodeEditorPanel />
+        <ResizeHandle direction="vertical" onResize={handleSidebarResize} />
 
-        <ResizeHandle direction="vertical" onResize={handleViewerResize} />
-
-        {/* Right: 3D Viewer */}
+        {/* Right Sidebar */}
         <div
-          style={{ width: `${panelSizes.viewerPercent}%` }}
-          className="shrink-0"
+          style={{ width: panelSizes.sidebarWidth }}
+          className="shrink-0 overflow-hidden"
         >
-          <ViewerPanel />
+          <RightSidebar />
         </div>
       </div>
-
-      {/* Bottom resize handle + Logs */}
-      {!panelSizes.logsCollapsed && (
-        <ResizeHandle direction="horizontal" onResize={handleLogsResize} />
-      )}
-      <LogsPanel />
 
       {/* Settings Modal */}
       <SettingsModal />

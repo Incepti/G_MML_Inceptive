@@ -50,6 +50,9 @@ export function AIAgentPanel() {
     <div className="flex flex-col h-full bg-editor-sidebar relative">
       {/* Header */}
       <div className="flex items-center px-3 py-2 border-b border-editor-border shrink-0 gap-2">
+        <span className="text-[10px] text-editor-accent uppercase tracking-wider font-semibold">
+          AI Scene Architect
+        </span>
         <ProjectDropdown />
         <div className="ml-auto flex items-center gap-1">
           {project && (
