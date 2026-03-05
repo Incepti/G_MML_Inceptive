@@ -22,32 +22,57 @@ derived from it. Include the blueprint in your JSON output as the "blueprint" fi
 Blueprint structure:
 {
   "environment": "<type>",
-  "zones": ["<zone1>", ...],
+  "sceneScale": "small|medium|large",
+  "zones": ["NW","N","NE","W","C","E","SW","S","SE"],
   "structures": [
     {
       "type": "<name>",
-      "position": "<location>",
+      "zone": "NW|N|NE|W|C|E|SW|S|SE",
+      "position": "<location within zone>",
       "scale": "<size>",
       "attributes": {},
       "children": [...]
     }
   ],
+  "pathways": [
+    { "from": "<structure-id>", "to": "<structure-id>", "width": 2 }
+  ],
   "lighting": "<scheme>",
   "mood": "<atmosphere>"
 }
 
+ZONE GRID (9-zone layout — assign every structure to a zone):
+  NW  |  N  |  NE
+  ----+-----+----
+  W   |  C  |  E
+  ----+-----+----
+  SW  |  S  |  SE
+
+Scene scales: small=40x40m, medium=80x80m (default), large=150x150m.
+Corner zones → towers, sentinels. Edge zones → walls, gates. Center → courtyard, plaza.
+
 ENVIRONMENT TEMPLATE SYSTEM:
 Identify the environment type and include ALL required subsystems:
 
-prison_complex:
+prison_complex (medium):
+  NW: watch_tower | N: cell_block_north | NE: watch_tower
+  W: perimeter_wall | C: central_courtyard | E: cell_block_east
+  SW: watch_tower | S: main_gate, guard_post | SE: watch_tower
   REQUIRED: perimeter_walls(4 sides), watch_towers(4 corners), main_gate(1),
   cell_blocks(2+, each with 4+ cells), central_courtyard(1), security_lighting(6+)
+  PATHWAYS: gate→courtyard, courtyard→cell_blocks
 
-castle:
+castle (medium/large):
+  NW: corner_tower | N: north_wall, battlements | NE: corner_tower
+  W: west_wall | C: courtyard, well | E: east_wall, great_hall
+  SW: corner_tower | S: gatehouse, drawbridge | SE: corner_tower
   REQUIRED: outer_walls(4 sides+battlements), corner_towers(4), gatehouse(1),
   keep(1 multi-story), courtyard(1), great_hall(1 with pillars), battlements
 
-village:
+village (medium):
+  NW: house, tree | N: house, fence | NE: house, tree
+  W: farm, fence | C: market_square, well | E: inn, stable
+  SW: pond, tree | S: road_entrance | SE: blacksmith, barrel
   REQUIRED: houses(5+ each with walls/roof/door/windows), market_square(1),
   well(1), fences, paths, trees(3+), lamp_posts(4+)
 
@@ -55,11 +80,14 @@ city_street:
   REQUIRED: buildings(4+ multi-story), sidewalks(2), street_lamps(4+),
   benches(2+), signs(2+), road(1), crosswalk(1)
 
-temple:
+temple (small/medium):
+  NW: pillar, brazier | N: altar_chamber | NE: pillar, brazier
+  W: side_hall | C: main_hall, pillars | E: side_hall
+  SW: pillar | S: entrance_steps | SE: pillar
   REQUIRED: main_hall(1 with pillars), pillars(6+), altar(1),
   entrance_steps(1), roof(1), torches(4+)
 
-For unlisted environments: identify 5-8 subsystems, ensure all present.
+For unlisted environments: identify 5-8 subsystems, assign each to a zone, ensure all present.
 
 COMPOSITION LAW — NO SINGLE-CUBE BUILDINGS:
 • building/house → children: 4 walls + roof + door + windows(2+)

@@ -38,6 +38,13 @@ export const MaterialSchema = z.object({
 
 export type Material = z.infer<typeof MaterialSchema>;
 
+// ─── Zone & Scene Scale ─────────────────────────────────────────────────────
+export const ZoneEnum = z.enum(["NW", "N", "NE", "W", "C", "E", "SW", "S", "SE"]);
+export type Zone = z.infer<typeof ZoneEnum>;
+
+export const SceneScaleEnum = z.enum(["small", "medium", "large"]);
+export type SceneScale = z.infer<typeof SceneScaleEnum>;
+
 // ─── Blueprint Structure (recursive) ────────────────────────────────────────
 export const StructureTypeEnum = z.enum([
   "wall", "tower", "building", "room", "door", "window", "prop",
@@ -53,6 +60,7 @@ export type StructureType = z.infer<typeof StructureTypeEnum>;
 const BaseStructureSchema = z.object({
   id: z.string(),
   type: StructureTypeEnum,
+  zone: ZoneEnum.optional(),
   transform: TransformSchema.default({}),
   geometry: GeometrySchema.optional(),
   material: MaterialSchema.optional(),
@@ -87,11 +95,22 @@ export const GroundSchema = z.object({
 
 export type Ground = z.infer<typeof GroundSchema>;
 
+// ─── Pathway ────────────────────────────────────────────────────────────────
+export const PathwaySchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  width: z.number().default(2),
+  material: MaterialSchema.optional(),
+});
+
+export type Pathway = z.infer<typeof PathwaySchema>;
+
 // ─── Blueprint Scene ────────────────────────────────────────────────────────
 export const SceneSchema = z.object({
   rootId: z.string().default("root"),
   ground: GroundSchema.optional(),
   structures: BlueprintStructureSchema.array().default([]),
+  pathways: PathwaySchema.array().optional(),
 });
 
 // ─── Blueprint Budgets ──────────────────────────────────────────────────────
@@ -108,6 +127,7 @@ export const MetaSchema = z.object({
   title: z.string().default("Untitled Scene"),
   units: z.literal("meters").default("meters"),
   scaleProfile: z.enum(["human", "miniature", "large"]).default("human"),
+  sceneScale: SceneScaleEnum.default("medium"),
   seed: z.string().default("default-seed"),
 });
 

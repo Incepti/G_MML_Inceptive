@@ -6,6 +6,7 @@ import { validateBlueprint } from "@/lib/blueprint/schema";
 import { generateMml } from "@/lib/blueprint/generateMml";
 import { validateAndFixMml } from "@/lib/mml/alphaValidator";
 import { buildEnvironmentCatalogPrompt } from "@/lib/assets/environment-catalog";
+import { validateLayout } from "@/lib/layout/validator";
 import type { BlueprintJSON, AiResponse, AiNewSceneResponse, AiPatchResponse } from "@/types/blueprint";
 
 // Rate limiting
@@ -54,12 +55,13 @@ Return:
 {
   "type": "NEW_SCENE",
   "blueprint": {
-    "meta": { "title": "<scene title>", "units": "meters", "scaleProfile": "human", "seed": "<deterministic seed>" },
+    "meta": { "title": "<scene title>", "units": "meters", "scaleProfile": "human", "sceneScale": "medium", "seed": "<deterministic seed>" },
     "budgets": { "maxLights": 8, "maxModels": 100, "maxEntities": 500 },
     "scene": {
       "rootId": "root",
-      "ground": { "type": "plane", "width": 60, "height": 60, "color": "#3a3a3a", "y": 0 },
-      "structures": [ ... ]
+      "ground": { "type": "plane", "width": 80, "height": 80, "color": "#3a3a3a", "y": 0 },
+      "structures": [ { "id": "tower-nw", "type": "tower", "zone": "NW", "transform": {...}, "children": [...] }, ... ],
+      "pathways": [ { "from": "main-gate", "to": "courtyard", "width": 3 }, ... ]
     }
   },
   "explain": {
@@ -94,6 +96,7 @@ Every structure object:
 {
   "id": "unique-id",         // REQUIRED — e.g. "tower-nw", "cell-block-east-cell-3"
   "type": "wall|tower|building|room|door|window|prop|clockTower|light|fence|gate|roof|floor|pillar|arch|stair|bridge|tree|rock|water|lamp|bench|table|chair|sign|barrel|crate|vehicle|custom",
+  "zone": "NW|N|NE|W|C|E|SW|S|SE",  // REQUIRED for top-level structures
   "transform": { "x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"sx":1,"sy":1,"sz":1 },
   "geometry": { "kind":"cube|cylinder|sphere|plane", "width":1, "height":1, "depth":1, "radius":0.5 },
   "material": { "color":"#888888", "opacity":1, "metalness":0, "roughness":1, "emissive":"#000000", "emissiveIntensity":0 },
@@ -268,6 +271,7 @@ EXAMPLE: WATCH TOWER STRUCTURE
 {
   "id": "tower-nw",
   "type": "tower",
+  "zone": "NW",
   "transform": { "x": -25, "z": -25 },
   "children": [
     {
@@ -306,6 +310,74 @@ EXAMPLE: WATCH TOWER STRUCTURE
     }
   ]
 }
+
+═══════════════════════════════════════════════════════════
+ZONE GRID SYSTEM (9-ZONE LAYOUT)
+═══════════════════════════════════════════════════════════
+Every scene is divided into a 3x3 grid of zones:
+
+         -Z (North)
+          |
+  NW  |  N  |  NE
+  ----+-----+----
+  W   |  C  |  E     -X (West) ←→ +X (East)
+  ----+-----+----
+  SW  |  S  |  SE
+          |
+         +Z (South)
+
+Assign a "zone" field to EVERY top-level structure.
+The zone determines the structure's approximate position.
+Then set precise transform coordinates within that zone's bounds.
+
+SCENE SCALE PROFILES (set meta.sceneScale):
+- "small" (40x40m): rooms, small gardens, single buildings
+  Ground: width=40, height=40. Zone cell ~13x13m.
+- "medium" (80x80m): compounds, villages, prison yards, temples
+  Ground: width=80, height=80. Zone cell ~27x27m. DEFAULT.
+- "large" (150x150m): cities, battlefields, large forests
+  Ground: width=150, height=150. Zone cell ~50x50m.
+
+ZONE COORDINATE RANGES (medium 80x80):
+  NW: x=-27..-13, z=-27..-13  | N: x=-13..13, z=-27..-13  | NE: x=13..27, z=-27..-13
+  W:  x=-27..-13, z=-13..13   | C: x=-13..13, z=-13..13   | E:  x=13..27, z=-13..13
+  SW: x=-27..-13, z=13..27    | S: x=-13..13, z=13..27    | SE: x=13..27, z=13..27
+
+ENVIRONMENT-SPECIFIC ZONE TEMPLATES:
+
+prison_complex (medium):
+  NW: watch_tower     | N: cell_block_north  | NE: watch_tower
+  W:  perimeter_wall  | C: central_courtyard | E:  cell_block_east
+  SW: watch_tower     | S: main_gate, guard  | SE: watch_tower
+
+castle (medium/large):
+  NW: corner_tower    | N: north_wall, battlements | NE: corner_tower
+  W:  west_wall       | C: courtyard, well         | E:  east_wall, great_hall
+  SW: corner_tower    | S: gatehouse, drawbridge   | SE: corner_tower
+
+village (medium):
+  NW: house, tree     | N: house, fence      | NE: house, tree
+  W:  farm, fence     | C: market_square, well | E:  inn, stable
+  SW: pond, tree      | S: road_entrance     | SE: blacksmith, barrel
+
+temple (small/medium):
+  NW: pillar, brazier | N: altar_chamber     | NE: pillar, brazier
+  W:  side_hall       | C: main_hall, pillars | E:  side_hall
+  SW: pillar          | S: entrance_steps    | SE: pillar
+
+PATHWAYS:
+Add logical movement paths to scene.pathways[]:
+  { "from": "main-gate", "to": "courtyard-center", "width": 3 }
+  { "from": "courtyard-center", "to": "cell-block-east", "width": 2 }
+Pathways automatically render as flat ground-level planes connecting two structures.
+
+ZONE RULES:
+- EVERY top-level structure MUST have a "zone" field (NW|N|NE|W|C|E|SW|S|SE)
+- Children inherit the parent's zone — no zone field needed on children
+- Transform x/z MUST fall within the zone's coordinate range
+- Corner zones (NW, NE, SW, SE): sentinels — towers, pillars, corner trees
+- Edge zones (N, S, E, W): perimeter — walls, fences, gates, cell blocks
+- Center zone (C): focal point — courtyards, plazas, altars, main structures
 
 ═══════════════════════════════════════════════════════════
 ASSET PREFERENCE RULE
@@ -463,17 +535,24 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Layout validation (zone/position consistency)
+      const layoutResult = validateLayout(bpResult.blueprint);
+      if (layoutResult.issues.length > 0) {
+        console.log(`[/api/ai] Layout issues: ${layoutResult.issues.map((i) => i.message).join(", ")}`);
+      }
+
       // Generate MML from validated blueprint
       const mml = generateMml(bpResult.blueprint);
       const { fixedMml, issues } = validateAndFixMml(mml);
+      const allIssues = [...issues, ...layoutResult.issues];
 
-      console.log(`[/api/ai] NEW_SCENE: "${bpResult.blueprint.meta.title}" — ${bpResult.blueprint.scene.structures.length} structures, ${fixedMml.length} chars MML, ${issues.length} validation issues`);
+      console.log(`[/api/ai] NEW_SCENE: "${bpResult.blueprint.meta.title}" — ${bpResult.blueprint.scene.structures.length} structures, ${fixedMml.length} chars MML, ${allIssues.length} validation issues`);
 
       return NextResponse.json({
         ...ns,
         blueprint: bpResult.blueprint,
         generatedMml: fixedMml,
-        validationIssues: issues,
+        validationIssues: allIssues,
       });
     }
 
