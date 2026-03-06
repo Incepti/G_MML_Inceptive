@@ -6,7 +6,6 @@
  */
 
 import type { BlueprintStructure } from "@/types/blueprint";
-import { searchEnvironmentAssets } from "@/lib/assets/environment-catalog";
 
 // ─── Public ──────────────────────────────────────────────────────────────────
 
@@ -44,29 +43,6 @@ export function renderStructure(
     ];
     lines.push(`${pad}<m-model ${attrs.join(" ")}></m-model>`);
     return;
-  }
-
-  // Auto-resolve from environment catalog
-  if (!s.geometry && !s.children?.length && !s.lightProps && !s.label) {
-    const match = searchEnvironmentAssets(s.type) || searchEnvironmentAssets(s.id);
-    const asset = (match && match.length > 0) ? match[0] : null;
-    if (asset) {
-      const t = s.transform;
-      const scale = asset.defaultScale;
-      const merged = {
-        ...t,
-        sx: t.sx !== 1 ? t.sx : scale,
-        sy: t.sy !== 1 ? t.sy : scale,
-        sz: t.sz !== 1 ? t.sz : scale,
-      };
-      const attrs = [
-        `id="${esc(s.id)}"`,
-        `src="${esc(asset.modelUrl)}"`,
-        ...transformAttrs(merged),
-      ];
-      lines.push(`${pad}<m-model ${attrs.join(" ")}></m-model>`);
-      return;
-    }
   }
 
   // Label

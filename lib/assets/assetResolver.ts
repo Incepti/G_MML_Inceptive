@@ -25,6 +25,7 @@ import type { BlueprintJSON, BlueprintStructure } from "@/types/blueprint";
 import type { ModelLibraryEntry } from "@/types/assets";
 import {
   resolveAsset as resolveLocalAsset,
+  classifyAssetCategory,
 } from "@/lib/mml/assets/assetResolver";
 import {
   findModels,
@@ -98,41 +99,12 @@ function extractKeywords(s: BlueprintStructure): string[] {
 
 /**
  * Determine the category for a structure.
+ * Uses the shared classifyAssetCategory from the sync resolver
+ * to ensure consistent classification across both pipelines.
  */
 function resolveCategory(s: BlueprintStructure): string {
   if (s.modelCategory) return s.modelCategory;
-
-  const type = s.type.toLowerCase();
-
-  const categoryMap: Record<string, string> = {
-    vehicle: "vehicle",
-    tower: "structure",
-    building: "structure",
-    wall: "structure",
-    gate: "structure",
-    bridge: "structure",
-    room: "structure",
-    door: "structure",
-    window: "structure",
-    arch: "structure",
-    stair: "structure",
-    fence: "structure",
-    roof: "structure",
-    pillar: "structure",
-    bench: "furniture",
-    table: "furniture",
-    chair: "furniture",
-    furniture: "furniture",
-    tree: "nature",
-    rock: "nature",
-    water: "nature",
-    nature: "nature",
-    creature: "character",
-    lamp: "lighting",
-    light: "lighting",
-  };
-
-  return categoryMap[type] || "prop";
+  return classifyAssetCategory(s.type, s.modelTags);
 }
 
 // ─── Single structure resolution (async) ────────────────────────────────────
@@ -158,7 +130,9 @@ async function resolveStructureAsync(
   const structureSeed = `${seed}:${s.id}`;
 
   // ── Step 1: Local catalog (ENVIRONMENT_CATALOG + TRUSTED_ASSETS) ──
-  const localMatch = resolveLocalAsset("", keywords);
+  // Pass category to enforce strict same-category matching
+  const assetCategory = classifyAssetCategory(s.type, s.modelTags);
+  const localMatch = resolveLocalAsset(keywords, assetCategory);
   if (localMatch) {
     return {
       ...s,

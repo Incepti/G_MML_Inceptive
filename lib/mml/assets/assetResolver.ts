@@ -1,5 +1,5 @@
 /**
- * Asset Resolver — model-first strategy.
+ * Asset Resolver — strict semantic matching with category gating.
  *
  * Before procedural building, attempts to resolve structures to verified
  * 3D model assets. If a matching model exists, the structure gets a
@@ -7,9 +7,11 @@
  *
  * Pipeline position: Blueprint → [Asset Resolver] → Builder → Serializer → MML
  *
- * STRICT MATCHING: Only resolves when a keyword matches an asset tag exactly.
- * If no exact match is found, returns null — the procedural builder handles it.
- * Never returns placeholder or fallback models.
+ * MATCHING RULES:
+ * 1. Classify the structure into a category (vehicle, character, etc.)
+ * 2. Search ONLY within that category
+ * 3. Match ONLY on specific object keywords, never on category-level tags
+ * 4. If no match, return null — procedural builder handles it
  *
  * Deterministic — same inputs → same outputs. No network calls.
  */
@@ -23,7 +25,81 @@ import {
   TRUSTED_ASSETS,
 } from "@/lib/assets/trusted-index";
 
-// ─── Keyword mapping: structure type → exact tags to match ──────────────────
+// ─── Category classification ────────────────────────────────────────────────
+
+/**
+ * Category-level terms. Used ONLY for classification, never as search keywords.
+ * Matching on these causes false positives (e.g. "vehicle" → RocketShip).
+ */
+const CATEGORY_TERMS = new Set([
+  // asset categories
+  "vehicle", "character", "furniture", "structure", "prop",
+  "lighting", "environment",
+  // semantic category aliases
+  "animal", "creature", "nature", "plant", "machine",
+  // style/mood tags (not object-specific)
+  "animated", "basic", "pbr", "sci-fi", "medieval", "urban",
+  "retro", "vintage", "modern", "fantasy", "realistic",
+  // spatial
+  "space", "forest", "aquatic", "indoor", "outdoor",
+]);
+
+/**
+ * Map a structure type (and optional keywords) to an EnvironmentAsset category.
+ * Exported so the async resolver can use the same classification.
+ */
+export function classifyAssetCategory(
+  type: string,
+  keywords?: string[],
+): EnvironmentAsset["category"] {
+  const t = type.toLowerCase();
+
+  const TYPE_CATEGORY: Record<string, EnvironmentAsset["category"]> = {
+    // vehicles
+    vehicle: "vehicle",
+    car: "vehicle", truck: "vehicle", bus: "vehicle",
+    motorcycle: "vehicle", bicycle: "vehicle", boat: "vehicle",
+    ship: "vehicle", airplane: "vehicle", rocket: "vehicle",
+    train: "vehicle",
+
+    // characters / animals
+    creature: "character", horse: "character", fox: "character",
+    fish: "character", astronaut: "character", robot: "character",
+    duck: "character",
+
+    // furniture
+    bench: "furniture", table: "furniture", chair: "furniture",
+    furniture: "furniture",
+
+    // structures
+    tower: "structure", building: "structure", wall: "structure",
+    gate: "structure", bridge: "structure", fence: "structure",
+    room: "structure", door: "structure", window: "structure",
+    arch: "structure", stair: "structure", roof: "structure",
+    pillar: "structure", clockTower: "structure",
+    floor: "structure",
+
+    // lighting
+    lamp: "lighting", lantern: "lighting", light: "lighting",
+
+    // environment / nature
+    tree: "environment", rock: "environment", water: "environment",
+    nature: "environment",
+  };
+
+  if (TYPE_CATEGORY[t]) return TYPE_CATEGORY[t];
+
+  // Check keywords for category hints
+  if (keywords) {
+    for (const kw of keywords) {
+      if (TYPE_CATEGORY[kw.toLowerCase()]) return TYPE_CATEGORY[kw.toLowerCase()];
+    }
+  }
+
+  return "prop";
+}
+
+// ─── Keyword mapping: type → specific object tags ───────────────────────────
 // Only maps types that have known matching assets. Keeps matches tight.
 
 const TYPE_SEARCH_TAGS: Record<string, string[]> = {
@@ -43,20 +119,12 @@ const TYPE_SEARCH_TAGS: Record<string, string[]> = {
   astronaut: ["astronaut"],
 };
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+// ─── Public API ─────────────────────────────────────────────────────────────
 
 /**
  * Resolve asset models for a blueprint's structures.
  * Returns a new BlueprintJSON where structures with matching models
  * have their `modelSrc` field populated.
- *
- * Only resolves top-level structures that lack:
- * - existing modelSrc
- * - existing geometry
- * - existing children
- *
- * This is a pre-builder pass. Structures with modelSrc will be serialized
- * as `<m-model>` and skip procedural building entirely.
  */
 export function resolveAssets(blueprint: BlueprintJSON): BlueprintJSON {
   const structures = blueprint.scene.structures.map((s) =>
@@ -66,43 +134,42 @@ export function resolveAssets(blueprint: BlueprintJSON): BlueprintJSON {
   return { ...blueprint, scene: { ...blueprint.scene, structures } };
 }
 
-// Tags that are too generic to produce reliable matches.
-// These exist on many assets and cause false positives (e.g. "character" → Astronaut).
-const BLOCKED_SEARCH_TAGS = new Set([
-  "character", "animal", "animated", "prop", "basic", "pbr",
-  "environment", "nature", "sci-fi", "medieval", "urban",
-]);
-
 /**
  * Attempt to resolve a single structure to a model asset.
- * Uses STRICT exact-tag matching against environment catalog and trusted index.
+ *
+ * Accepts an optional category filter. When provided, only assets
+ * in that category will be considered. This prevents cross-category
+ * false positives (e.g. "car" returning a RocketShip).
  *
  * Returns null if no exact match is found. Never returns placeholder models.
  */
 export function resolveAsset(
-  _archetype: string,
   keywords: string[],
+  category?: EnvironmentAsset["category"],
 ): EnvironmentAsset | null {
-  // Filter out blocked generic tags
+  // Filter out category-level terms — they must never be used as search keywords
   const filtered = keywords
     .map((k) => k.toLowerCase())
-    .filter((k) => !BLOCKED_SEARCH_TAGS.has(k));
+    .filter((k) => !CATEGORY_TERMS.has(k) && k.length > 1);
 
   if (filtered.length === 0) return null;
 
-  // Search environment catalog — exact tag or id match only
+  // Search environment catalog — exact tag or id match, category-gated
   for (const kw of filtered) {
     const match = ENVIRONMENT_CATALOG.find((a) =>
-      a.tags.some((t) => t === kw) || a.id === kw
+      (category == null || a.category === category) &&
+      (a.tags.some((t) => t === kw) || a.id === kw)
     );
     if (match) return match;
   }
 
-  // Search trusted index — exact tag or id match only
+  // Search trusted index — exact tag or id match, category-gated
   for (const kw of filtered) {
-    const ta = TRUSTED_ASSETS.find((a) =>
-      a.tags.some((t) => t === kw) || a.id === kw
-    );
+    const ta = TRUSTED_ASSETS.find((a) => {
+      const assetCategory = mapTagsToCategory(a.tags);
+      if (category != null && assetCategory !== category) return false;
+      return a.tags.some((t) => t === kw) || a.id === kw;
+    });
     if (ta) {
       return {
         id: ta.id,
@@ -144,7 +211,15 @@ function resolveStructureAsset(
     keywords.push(s.id);
   }
 
-  const asset = resolveAsset("", keywords);
+  // Add modelTags if provided by the blueprint
+  if (s.modelTags && s.modelTags.length > 0) {
+    keywords.push(...s.modelTags);
+  }
+
+  // Classify category — gates which assets can match
+  const category = classifyAssetCategory(s.type, s.modelTags);
+
+  const asset = resolveAsset(keywords, category);
   if (asset) {
     const scale = asset.defaultScale;
     return {
