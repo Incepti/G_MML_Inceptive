@@ -84,9 +84,6 @@ export function classifyAssetCategory(
     // lighting
     lamp: "lighting", lantern: "lighting", light: "lighting",
 
-    // vehicles (extended)
-    car: "vehicle",
-
     // environment / nature
     tree: "environment", rock: "environment", water: "environment",
     nature: "environment", plant: "environment", flower: "environment",
