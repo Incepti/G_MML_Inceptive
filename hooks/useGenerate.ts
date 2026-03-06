@@ -8,6 +8,7 @@ import type { BlueprintJSON, PatchOperation } from "@/types/blueprint";
 import { generateMml } from "@/lib/blueprint/generateMml";
 import { validateAndFixMml } from "@/lib/mml/alphaValidator";
 import { applyBlueprintPatch } from "@/lib/blueprint/patch";
+import { enhanceBlueprint, enforceGrounding } from "@/lib/blueprint/archetypes";
 
 function synthesizeReasoning(data: Record<string, unknown>): ReasoningStep[] {
   const steps: ReasoningStep[] = [];
@@ -109,18 +110,10 @@ export function useGenerate() {
         const mode = currentBlueprint ? "PATCH" : "NEW_SCENE";
 
         const mmlFile = project.files.find((f) => f.name === "scene.mml");
-        const currentMml = mmlFile?.content;
-
-        const chatHistory = store.getChatHistory();
-        const conversationHistory = chatHistory
-          .filter((m) => m.role !== "system" && m.id !== aiMessageId)
-          .slice(-10)
-          .map((m) => ({
-            role: m.role as "user" | "assistant",
-            content: m.role === "assistant" ? (m.content || "Done.") : m.content,
-          }));
 
         // 4. Call /api/ai
+        // NEW_SCENE: stateless — no history, no MML, no previous context
+        // PATCH: send only current blueprint + user request
         const res = await fetch("/api/ai", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -128,9 +121,9 @@ export function useGenerate() {
             mode,
             userMessage,
             currentBlueprint: currentBlueprint || undefined,
-            currentMml: currentMml || undefined,
             projectMode: project.mode,
-            conversationHistory,
+            // No currentMml — Claude never sees generated MML
+            // No conversationHistory for NEW_SCENE — prevents context pollution
           }),
         });
 
@@ -257,7 +250,10 @@ export function useGenerate() {
             return;
           }
 
-          const newBlueprint = patchResult.blueprint;
+          // Enhance patched blueprint with archetype builders + grounding
+          let newBlueprint = patchResult.blueprint;
+          newBlueprint = enhanceBlueprint(newBlueprint);
+          newBlueprint = enforceGrounding(newBlueprint);
 
           // Log blueprint state after patch
           store.addLog({ type: "info", message: `[PATCH] blueprint_after: ${newBlueprint.scene.structures.length} structures, title="${newBlueprint.meta.title}"` });

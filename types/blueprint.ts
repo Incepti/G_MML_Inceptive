@@ -122,6 +122,31 @@ export const BudgetsSchema = z.object({
 
 export type Budgets = z.infer<typeof BudgetsSchema>;
 
+// ─── Blueprint Intent (classifier-driven metadata) ─────────────────────────
+export const BlueprintTypeEnum = z.enum(["object", "scene"]);
+export type BlueprintType = z.infer<typeof BlueprintTypeEnum>;
+
+export const IntentSchema = z.object({
+  name: z.string().default("unknown"),
+  archetype: z.string().default("custom"),
+});
+
+export type Intent = z.infer<typeof IntentSchema>;
+
+export const StyleSchema = z.object({
+  theme: z.string().default("neutral"),
+  detailLevel: z.enum(["low", "medium", "high"]).default("medium"),
+});
+
+export type Style = z.infer<typeof StyleSchema>;
+
+export const CompositionSchema = z.object({
+  focus: z.enum(["single", "layout"]).default("single"),
+  symmetry: z.boolean().default(false),
+});
+
+export type Composition = z.infer<typeof CompositionSchema>;
+
 // ─── Blueprint Meta ─────────────────────────────────────────────────────────
 export const MetaSchema = z.object({
   title: z.string().default("Untitled Scene"),
@@ -135,6 +160,10 @@ export type Meta = z.infer<typeof MetaSchema>;
 
 // ─── Full BlueprintJSON ─────────────────────────────────────────────────────
 export const BlueprintSchema = z.object({
+  type: BlueprintTypeEnum.default("scene"),
+  intent: IntentSchema.default({}),
+  style: StyleSchema.default({}),
+  composition: CompositionSchema.default({}),
   meta: MetaSchema.default({}),
   budgets: BudgetsSchema.default({}),
   scene: SceneSchema.default({}),
