@@ -153,8 +153,12 @@ const TYPE_SEARCH_TAGS: Record<string, string[]> = {
  * have their `modelSrc` field populated.
  */
 export function resolveAssets(blueprint: BlueprintJSON): BlueprintJSON {
+  // Extract intent hints — the user's request name (e.g. "chair", "dragon")
+  const intentName = blueprint.intent?.name?.toLowerCase() || "";
+  const archetype = blueprint.intent?.archetype?.toLowerCase() || "";
+
   const structures = blueprint.scene.structures.map((s) =>
-    resolveStructureAsset(s)
+    resolveStructureAsset(s, intentName, archetype)
   );
 
   return { ...blueprint, scene: { ...blueprint.scene, structures } };
@@ -216,6 +220,8 @@ export function resolveAsset(
 
 function resolveStructureAsset(
   s: BlueprintStructure,
+  intentName = "",
+  archetype = "",
 ): BlueprintStructure {
   // Skip if already has model, geometry, children, or light
   if (s.modelSrc || s.geometry || s.children?.length || s.lightProps) {
@@ -240,6 +246,21 @@ function resolveStructureAsset(
   // Add modelTags if provided by the blueprint
   if (s.modelTags && s.modelTags.length > 0) {
     keywords.push(...s.modelTags);
+  }
+
+  // Add intent name as keyword — "create a chair" → intent.name = "chair"
+  // This is critical for object mode where structures have generic ids
+  if (intentName) {
+    keywords.push(intentName);
+    // Also add words from multi-word intents (e.g. "wooden chair" → ["wooden", "chair"])
+    const intentWords = intentName.split(/[\s-_]+/).filter((w) => w.length > 2);
+    keywords.push(...intentWords);
+    // Add search tags for intent words too
+    for (const word of intentWords) {
+      if (TYPE_SEARCH_TAGS[word]) {
+        keywords.push(...TYPE_SEARCH_TAGS[word]);
+      }
+    }
   }
 
   // Classify category — gates which assets can match
