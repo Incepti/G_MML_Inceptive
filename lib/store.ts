@@ -74,7 +74,7 @@ interface EditorState {
 
   // UI State
   sidebarTab: "inspector" | "agent";
-  inspectorTab: "properties" | "manifest" | "validation";
+  inspectorTab: "properties" | "manifest" | "validation" | "selection";
 
   // Sandbox
   sandboxReady: boolean;
@@ -87,6 +87,11 @@ interface EditorState {
   blueprintOutOfSync: boolean;
   pendingDiff: { oldMml: string; newMml: string } | null;
   lastAiResponse: { type: string; explain?: { reasoning?: string[]; changes?: string[]; blueprintSummary?: string[] }; patch?: PatchOperation[] } | null;
+
+  // Viewport Selection & Transform
+  selectedObjectId: string | null;
+  transformMode: "translate" | "rotate" | "scale";
+  viewportTransformDirty: boolean;
 }
 
 interface EditorActions {
@@ -138,7 +143,7 @@ interface EditorActions {
 
   // UI
   setSidebarTab: (tab: "inspector" | "agent") => void;
-  setInspectorTab: (tab: "properties" | "manifest" | "validation") => void;
+  setInspectorTab: (tab: "properties" | "manifest" | "validation" | "selection") => void;
 
   // Sandbox
   setSandboxReady: (ready: boolean) => void;
@@ -154,6 +159,12 @@ interface EditorActions {
   rejectDiff: () => void;
   setLastAiResponse: (resp: EditorState["lastAiResponse"]) => void;
   resyncFromBlueprint: (mml: string) => void;
+
+  // Viewport Selection & Transform
+  setSelectedObjectId: (id: string | null) => void;
+  setTransformMode: (mode: "translate" | "rotate" | "scale") => void;
+  setViewportTransformDirty: (dirty: boolean) => void;
+  updateBlueprintTransform: (structureId: string, transform: { x: number; y: number; z: number; rx: number; ry: number; rz: number; sx: number; sy: number; sz: number }) => void;
 
   // Helpers
   getActiveProject: () => Project | null;
@@ -198,6 +209,11 @@ export const useEditorStore = create<StoreState>()(
       blueprintOutOfSync: false,
       pendingDiff: null,
       lastAiResponse: null,
+
+      // Viewport Selection & Transform
+      selectedObjectId: null,
+      transformMode: "translate",
+      viewportTransformDirty: false,
 
       // ── Project Actions ───────────────────────────────────────────────
       createProject: (name, mode) => {
@@ -416,6 +432,39 @@ export const useEditorStore = create<StoreState>()(
           lastValidMml: mml,
           manualEditMode: false,
           blueprintOutOfSync: false,
+        });
+      },
+
+      // ── Viewport Selection & Transform ─────────────────────────────
+      setSelectedObjectId: (id) => set({ selectedObjectId: id }),
+      setTransformMode: (mode) => set({ transformMode: mode }),
+      setViewportTransformDirty: (dirty) => set({ viewportTransformDirty: dirty }),
+
+      updateBlueprintTransform: (structureId, transform) => {
+        const s = get();
+        if (!s.currentBlueprint) return;
+
+        type Struct = BlueprintJSON["scene"]["structures"][number];
+        const updateStructure = (structures: Struct[]): Struct[] =>
+          structures.map((st) => {
+            if (st.id === structureId) {
+              return { ...st, transform };
+            }
+            if (st.children?.length) {
+              return { ...st, children: updateStructure(st.children) };
+            }
+            return st;
+          });
+
+        set({
+          currentBlueprint: {
+            ...s.currentBlueprint,
+            scene: {
+              ...s.currentBlueprint.scene,
+              structures: updateStructure(s.currentBlueprint.scene.structures),
+            },
+          },
+          viewportTransformDirty: true,
         });
       },
 

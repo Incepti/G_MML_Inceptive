@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import type { MMLNode, ParsedMML } from "@/types/mml";
 import { parseMML } from "@/lib/mml/parser";
 
@@ -47,12 +48,20 @@ interface AttrAnimation {
 
 export type SceneObjectMap = Map<string, THREE.Object3D>;
 
+export type SelectionCallback = (objectId: string | null) => void;
+export type TransformChangeCallback = (objectId: string, transform: {
+  x: number; y: number; z: number;
+  rx: number; ry: number; rz: number;
+  sx: number; sy: number; sz: number;
+}) => void;
+
 // ─── Main Renderer ─────────────────────────────────────────────────────────
 export class MMLRenderer {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private controls: OrbitControls;
+  private transformControls: TransformControls;
   private gltfLoader: GLTFLoader;
   private objectMap: SceneObjectMap = new Map();
   private animationFrameId: number | null = null;
@@ -60,6 +69,16 @@ export class MMLRenderer {
   private mixers: THREE.AnimationMixer[] = [];
   private attrAnims: AttrAnimation[] = [];
   private clock: THREE.Clock;
+  private raycaster: THREE.Raycaster;
+  private pointer: THREE.Vector2;
+  private canvas: HTMLCanvasElement;
+
+  // Selection state
+  private selectedObject: THREE.Object3D | null = null;
+  private selectedObjectId: string | null = null;
+  private selectionOutline: THREE.BoxHelper | null = null;
+  private onSelectionChange: SelectionCallback | null = null;
+  private onTransformChange: TransformChangeCallback | null = null;
 
   constructor(canvas: HTMLCanvasElement, options?: Partial<RendererOptions>) {
     this.options = { ...DEFAULT_RENDERER_OPTIONS, ...options };
@@ -122,6 +141,44 @@ export class MMLRenderer {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
 
+    // ── Transform Controls (gizmo) ──────────────────────────────────────
+    this.transformControls = new TransformControls(this.camera, canvas);
+    this.transformControls.name = "__editor_gizmo__";
+    this.transformControls.setSize(0.75);
+    this.scene.add(this.transformControls);
+
+    // Disable orbit while dragging gizmo
+    this.transformControls.addEventListener("dragging-changed", (event) => {
+      this.controls.enabled = !event.value;
+    });
+
+    // Emit transform changes when gizmo interaction ends
+    this.transformControls.addEventListener("objectChange", () => {
+      if (!this.selectedObject || !this.selectedObjectId) return;
+      this.updateSelectionOutline();
+      if (this.onTransformChange) {
+        const p = this.selectedObject.position;
+        const r = this.selectedObject.rotation;
+        const s = this.selectedObject.scale;
+        this.onTransformChange(this.selectedObjectId, {
+          x: Math.round(p.x * 1000) / 1000,
+          y: Math.round(p.y * 1000) / 1000,
+          z: Math.round(p.z * 1000) / 1000,
+          rx: Math.round(THREE.MathUtils.radToDeg(r.x) * 1000) / 1000,
+          ry: Math.round(THREE.MathUtils.radToDeg(r.y) * 1000) / 1000,
+          rz: Math.round(THREE.MathUtils.radToDeg(r.z) * 1000) / 1000,
+          sx: Math.round(s.x * 1000) / 1000,
+          sy: Math.round(s.y * 1000) / 1000,
+          sz: Math.round(s.z * 1000) / 1000,
+        });
+      }
+    });
+
+    // ── Raycaster ────────────────────────────────────────────────────────
+    this.raycaster = new THREE.Raycaster();
+    this.pointer = new THREE.Vector2();
+    this.canvas = canvas;
+
     this.gltfLoader = new GLTFLoader();
   }
 
@@ -163,6 +220,16 @@ export class MMLRenderer {
   }
 
   private clearMMLObjects() {
+    // Detach gizmo before clearing to avoid dangling references
+    this.transformControls.detach();
+    this.selectedObject = null;
+    this.selectedObjectId = null;
+    if (this.selectionOutline) {
+      this.scene.remove(this.selectionOutline);
+      this.selectionOutline.dispose();
+      this.selectionOutline = null;
+    }
+
     const root = this.scene.getObjectByName("__mml_root__");
     if (root) {
       this.disposeObject(root);
@@ -590,6 +657,7 @@ export class MMLRenderer {
 
       this.mixers.forEach((m) => m.update(delta));
       this.tickAttrAnims(now);
+      if (this.selectionOutline) this.selectionOutline.update();
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
     };
@@ -611,9 +679,132 @@ export class MMLRenderer {
 
   dispose() {
     this.stop();
+    this.deselectObject();
     this.clearMMLObjects();
+    this.transformControls.dispose();
     this.controls.dispose();
     this.renderer.dispose();
+  }
+
+  // ─── Selection & Picking ──────────────────────────────────────────────
+
+  /**
+   * Set callback for when object selection changes.
+   */
+  setOnSelectionChange(cb: SelectionCallback | null) {
+    this.onSelectionChange = cb;
+  }
+
+  /**
+   * Set callback for when a selected object's transform changes via gizmo.
+   */
+  setOnTransformChange(cb: TransformChangeCallback | null) {
+    this.onTransformChange = cb;
+  }
+
+  /**
+   * Handle a click event on the canvas — raycast to pick MML objects.
+   */
+  handleClick(event: MouseEvent) {
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+
+    // Only raycast against MML objects (exclude editor helpers)
+    const mmlRoot = this.scene.getObjectByName("__mml_root__");
+    if (!mmlRoot) return;
+
+    const intersects = this.raycaster.intersectObjects(mmlRoot.children, true);
+
+    if (intersects.length > 0) {
+      // Walk up to find the object that has an MML id in objectMap
+      let hit = intersects[0].object;
+      let foundId: string | null = null;
+
+      while (hit && hit !== mmlRoot) {
+        for (const [id, obj] of this.objectMap) {
+          if (id !== "__mml_root__" && obj === hit) {
+            foundId = id;
+            break;
+          }
+        }
+        if (foundId) break;
+        hit = hit.parent!;
+      }
+
+      if (foundId) {
+        this.selectObjectById(foundId);
+      } else {
+        this.deselectObject();
+      }
+    } else {
+      this.deselectObject();
+    }
+  }
+
+  /**
+   * Select an object by its MML id.
+   */
+  selectObjectById(id: string) {
+    const obj = this.objectMap.get(id);
+    if (!obj) return;
+
+    this.selectedObject = obj;
+    this.selectedObjectId = id;
+
+    this.transformControls.attach(obj);
+    this.updateSelectionOutline();
+
+    if (this.onSelectionChange) {
+      this.onSelectionChange(id);
+    }
+  }
+
+  /**
+   * Clear the current selection.
+   */
+  deselectObject() {
+    if (!this.selectedObject) return;
+
+    this.transformControls.detach();
+    this.selectedObject = null;
+    this.selectedObjectId = null;
+
+    if (this.selectionOutline) {
+      this.scene.remove(this.selectionOutline);
+      this.selectionOutline.dispose();
+      this.selectionOutline = null;
+    }
+
+    if (this.onSelectionChange) {
+      this.onSelectionChange(null);
+    }
+  }
+
+  /**
+   * Set the transform gizmo mode.
+   */
+  setTransformMode(mode: "translate" | "rotate" | "scale") {
+    this.transformControls.setMode(mode);
+  }
+
+  /**
+   * Update or create the selection outline (BoxHelper).
+   */
+  private updateSelectionOutline() {
+    if (this.selectionOutline) {
+      this.scene.remove(this.selectionOutline);
+      this.selectionOutline.dispose();
+      this.selectionOutline = null;
+    }
+
+    if (this.selectedObject) {
+      this.selectionOutline = new THREE.BoxHelper(this.selectedObject, 0x00aaff);
+      this.selectionOutline.name = "__editor_selection__";
+      this.scene.add(this.selectionOutline);
+    }
   }
 
   getScene() { return this.scene; }

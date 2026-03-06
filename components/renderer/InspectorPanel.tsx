@@ -4,6 +4,7 @@ import React from "react";
 import * as THREE from "three";
 import { useEditorStore } from "@/lib/store";
 import type { ValidationReport } from "@/types/mml";
+import type { BlueprintJSON } from "@/types/blueprint";
 
 function ValidationResults({ report }: { report: ValidationReport }) {
   if (report.valid && report.errors.length === 0 && report.warnings.length === 0) {
@@ -220,6 +221,145 @@ function CompliancePanel({
   );
 }
 
+function findStructure(
+  structures: BlueprintJSON["scene"]["structures"],
+  id: string,
+): BlueprintJSON["scene"]["structures"][number] | null {
+  for (const s of structures) {
+    if (s.id === id) return s;
+    if (s.children?.length) {
+      const found = findStructure(s.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function TransformField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-editor-text-muted w-5 text-right">{label}</span>
+      <input
+        type="number"
+        step="0.1"
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        className="flex-1 bg-editor-panel border border-editor-border text-editor-text rounded px-1.5 py-0.5 text-xs font-mono w-16"
+      />
+    </div>
+  );
+}
+
+function SelectionProperties() {
+  const {
+    selectedObjectId,
+    currentBlueprint,
+    updateBlueprintTransform,
+  } = useEditorStore();
+
+  if (!selectedObjectId || !currentBlueprint) {
+    return (
+      <div className="text-editor-text-muted text-xs text-center py-8">
+        Click an object in the viewport to inspect it
+      </div>
+    );
+  }
+
+  const structure = findStructure(currentBlueprint.scene.structures, selectedObjectId);
+  if (!structure) {
+    return (
+      <div className="text-editor-text-muted text-xs text-center py-8">
+        Object &quot;{selectedObjectId}&quot; not found in blueprint
+      </div>
+    );
+  }
+
+  const t = structure.transform;
+
+  const update = (field: string, value: number) => {
+    updateBlueprintTransform(selectedObjectId, {
+      ...t,
+      [field]: value,
+    });
+  };
+
+  return (
+    <div className="space-y-3 text-xs">
+      <div className="bg-editor-panel rounded p-2 border border-editor-border">
+        <div className="text-editor-text font-medium">{structure.id}</div>
+        <div className="text-editor-text-muted text-[10px]">Type: {structure.type}</div>
+      </div>
+
+      <div>
+        <div className="text-editor-text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">
+          Position
+        </div>
+        <div className="space-y-1">
+          <TransformField label="X" value={t.x} onChange={(v) => update("x", v)} />
+          <TransformField label="Y" value={t.y} onChange={(v) => update("y", v)} />
+          <TransformField label="Z" value={t.z} onChange={(v) => update("z", v)} />
+        </div>
+      </div>
+
+      <div>
+        <div className="text-editor-text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">
+          Rotation
+        </div>
+        <div className="space-y-1">
+          <TransformField label="X" value={t.rx} onChange={(v) => update("rx", v)} />
+          <TransformField label="Y" value={t.ry} onChange={(v) => update("ry", v)} />
+          <TransformField label="Z" value={t.rz} onChange={(v) => update("rz", v)} />
+        </div>
+      </div>
+
+      <div>
+        <div className="text-editor-text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">
+          Scale
+        </div>
+        <div className="space-y-1">
+          <TransformField label="X" value={t.sx} onChange={(v) => update("sx", v)} />
+          <TransformField label="Y" value={t.sy} onChange={(v) => update("sy", v)} />
+          <TransformField label="Z" value={t.sz} onChange={(v) => update("sz", v)} />
+        </div>
+      </div>
+
+      {structure.material && (
+        <div>
+          <div className="text-editor-text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">
+            Material
+          </div>
+          <div className="bg-editor-panel rounded p-2 border border-editor-border space-y-1">
+            {structure.material.color && (
+              <div className="flex items-center gap-2">
+                <span className="text-editor-text-muted">Color</span>
+                <div
+                  className="w-4 h-4 rounded border border-editor-border"
+                  style={{ backgroundColor: structure.material.color }}
+                />
+                <span className="font-mono text-editor-text">{structure.material.color}</span>
+              </div>
+            )}
+            {structure.material.opacity !== undefined && (
+              <div className="flex items-center gap-2">
+                <span className="text-editor-text-muted">Opacity</span>
+                <span className="font-mono text-editor-text">{structure.material.opacity}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InspectorPanel() {
   const {
     inspectorTab,
@@ -228,10 +368,12 @@ export function InspectorPanel() {
     getActiveProject,
     complianceScore,
     overallStatus,
+    selectedObjectId,
   } = useEditorStore();
   const project = getActiveProject();
 
   const tabs = [
+    { id: "selection" as const, label: "Selection" },
     { id: "validation" as const, label: "Validation" },
     { id: "properties" as const, label: "Renderer" },
     { id: "manifest" as const, label: "Assets" },
@@ -273,6 +415,8 @@ export function InspectorPanel() {
             )}
           </>
         )}
+
+        {inspectorTab === "selection" && <SelectionProperties />}
 
         {inspectorTab === "properties" && <RendererControls />}
 
