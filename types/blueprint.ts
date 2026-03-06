@@ -51,7 +51,8 @@ export const StructureTypeEnum = z.enum([
   "clockTower", "light", "fence", "gate", "roof", "floor", "pillar",
   "arch", "stair", "bridge", "tree", "rock", "water", "lamp",
   "bench", "table", "chair", "sign", "barrel", "crate", "vehicle",
-  "custom",
+  "custom", "furniture", "machine", "container", "weapon", "tool",
+  "creature", "nature",
 ]);
 
 export type StructureType = z.infer<typeof StructureTypeEnum>;

@@ -68,7 +68,7 @@ const STRUCTURE_FORMAT = `
 STRUCTURE FORMAT (for scene.structures):
 {
   "id": "unique-id",
-  "type": "wall|tower|building|room|door|window|prop|clockTower|light|fence|gate|roof|floor|pillar|arch|stair|bridge|tree|rock|water|lamp|bench|table|chair|sign|barrel|crate|vehicle|custom",
+  "type": "wall|tower|building|room|door|window|prop|clockTower|light|fence|gate|roof|floor|pillar|arch|stair|bridge|tree|rock|water|lamp|bench|table|chair|sign|barrel|crate|vehicle|custom|furniture|machine|container|weapon|tool|creature|nature",
   "zone": "NW|N|NE|W|C|E|SW|S|SE",
   "transform": { "x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"sx":1,"sy":1,"sz":1 },
   "lightProps": { "type":"point|directional|spot", "intensity":1, "color":"#ffffff", "distance":20 },
