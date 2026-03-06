@@ -89,13 +89,32 @@ temple (small/medium):
 
 For unlisted environments: identify 5-8 subsystems, assign each to a zone, ensure all present.
 
-COMPOSITION LAW — NO SINGLE-CUBE BUILDINGS:
-• building/house → children: 4 walls + roof + door + windows(2+)
-• tower → children: base + shaft + platform + roof/cap + railing
-• cell_block → children: corridor + cells(4+), each cell → walls + door + window + bed
-• gate → children: pillars(2) + arch + door panels(2)
-• lamp_post → children: base + pole + shade + emissive bulb
-• tree → children: trunk + canopy spheres(2-3)
+COMPOSITION LAW — NO SINGLE-PRIMITIVE OBJECTS:
+Every object MUST use multiple primitives. Zero single-cube objects allowed.
+
+STRUCTURES (5+ children each):
+• building/house → 4 walls + roof + door + windows(2+)
+• tower → base + shaft + platform + railing(4 sides) + roof/spotlight
+• cell_block → corridor + cells(4+), each cell → walls + door + window + bed + toilet
+• gate → pillars(2) + arch + door panels(2) + frame-top
+
+FURNITURE & PROPS (4+ children each):
+• bench → seat-planks(3) + legs(2) + back-support
+• bed → frame + mattress + pillow + legs(4) + headboard
+• table → top + legs(4)
+• chair → seat + back + legs(4)
+• barrel → body + top-rim + bottom-rim + mid-band
+
+DOORS & BARRIERS:
+• prison_door → frame(3) + vertical bars(5-7) + cross-bars(2-3)
+• window_barred → frame + glass + bars(3)
+
+ENVIRONMENT:
+• lamp_post → base + pole + arm + shade + emissive bulb
+• tree → trunk + canopy spheres(2-3)
+• rock → base sphere + top sphere
+• well → base + rim + posts(2) + crossbeam + bucket
+• fence → posts(4+) + rail-top + rail-bottom
 
 REPETITION PATTERNS (use incremental offsets for rows):
 • Cell row: cell-1 z=0, cell-2 z=4, cell-3 z=8, cell-4 z=12
@@ -109,8 +128,11 @@ SCALE REFERENCE (meters):
   Lamp post: 3-4m | Fence: 1.5m high | Tree trunk: 3-5m, canopy: 2-4m radius
 
 BLUEPRINT RULES:
-• MINIMUM 20 top-level structures (each with 3+ children for buildings/towers)
-• Total entities (structures + all nested children): 80-200+
+• MINIMUM 20 top-level structures
+• Buildings/towers/gates: 5+ children each
+• Props (bench/bed/table/barrel): 4+ children each
+• ZERO single-primitive objects anywhere
+• Total entities (structures + all nested children): 150-500
 • Every structure MUST have type and position
 • Use zones to organize spatial layout logically
 • Positions: cardinal ("nw"), or numeric ("x:5,y:0,z:-3")
@@ -186,7 +208,8 @@ Convert the blueprint to MML code using MODULAR COMPOSITION:
 • Towers MUST decompose into base + shaft + platform + railing
 • Use repeated m-groups for rows (cells, wall segments, fence posts)
 • Position children with incremental offsets for even spacing
-• MINIMUM 80 total MML elements (primitives + groups + lights)
+• MINIMUM 150 total MML elements (primitives + groups + lights)
+• ZERO single-primitive objects — every object has multiple children
 • Ensure proper y-stacking: roof.y = wall.height, platform.y = shaft.height
 • Use VARIED colors per material type — no monochrome buildings
 

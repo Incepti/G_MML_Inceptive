@@ -264,49 +264,142 @@ forest_clearing:
 For environments not listed above: identify 5-8 required subsystems and ensure each is present with appropriate detail.
 
 ═══════════════════════════════════════════════════════════
-COMPOSITION LAW — NO SINGLE-CUBE BUILDINGS
+COMPOSITION LAW — NO SINGLE-PRIMITIVE OBJECTS
 ═══════════════════════════════════════════════════════════
-EVERY structure with type building, room, tower, or gate MUST have children.
-A building is NEVER a single cube. It is composed of modular parts:
+EVERY object MUST be built from MULTIPLE primitives. A single cube is NEVER
+acceptable for any visible structure. More primitives = more visual detail.
+
+BUILDINGS & STRUCTURES:
 
 building/house → children: [
-  wall-north (cube), wall-south (cube), wall-east (cube), wall-west (cube),
-  roof (cube or cylinder, angled), door (cube, recessed), windows (2+, cubes)
+  wall-north (cube w:6 h:3 d:0.3), wall-south, wall-east (cube w:0.3 h:3 d:8), wall-west,
+  roof (cube w:7 h:0.3 d:9 rx:5°, overhang 0.5m), door (cube w:1 h:2 d:0.15 #4A3728),
+  window-1 (cube w:0.8 h:1 d:0.1 #87CEEB opacity:0.4), window-2, window-3
 ]
 
 tower → children: [
-  base (cube, wide), shaft (cylinder or cube, tall), platform (cube, wider than shaft),
-  roof/cap (cylinder or cube, peaked), railing (thin cubes around platform edge)
+  base (cube w:4 h:3 d:4 #6B6B6B), shaft (cylinder r:1.5 h:10 #7A7A7A),
+  platform (cube w:5 h:0.3 d:5 #5C5C5C), railing-n (cube w:5 h:1 d:0.1 #708090),
+  railing-s, railing-e, railing-w, roof-cap (cylinder r:2.5 h:1.5 peaked)
 ]
-If type is "light" tower, also add a spotlight child with lightProps.
+If watch tower: add spotlight child (type:light, lightProps: spot, intensity:2)
 
 cell_block → children: [
-  corridor (cube, long), cell-1, cell-2, cell-3, cell-4 (each spaced along z-axis)
+  corridor (cube w:2 h:3 d:20 #5C5C5C), cell-1 z:0, cell-2 z:4, cell-3 z:8, cell-4 z:12
 ]
 Each cell → children: [
-  back-wall (cube), side-walls (2 cubes), door (cube, with bars/opacity),
-  window (small cube, high), bed (cube), toilet (small cube)
+  back-wall, left-wall, right-wall, cell-door (see prison door below),
+  window (cube w:0.6 h:0.4 d:0.1 high on wall, #87CEEB opacity:0.3),
+  bed (see bed below), toilet (cylinder r:0.15 h:0.4 #DDDDDD)
 ]
 
 gate → children: [
-  left-pillar (cube), right-pillar (cube), arch (cylinder or cube),
-  door-left (cube), door-right (cube), frame-top (cube)
+  left-pillar (cube w:1 h:4 d:1 #6B6B6B), right-pillar,
+  arch-top (cube w:4 h:0.5 d:1), door-left (cube w:1.5 h:3 d:0.15 #4A3728),
+  door-right, frame-top (cube w:6 h:0.3 d:1 #5C5C5C)
 ]
 
+FURNITURE & PROPS (NEVER a single cube):
+
+bench → children: [
+  seat-plank-1 (cube w:1.2 h:0.05 d:0.15 z:-0.15 #DEB887),
+  seat-plank-2 (cube w:1.2 h:0.05 d:0.15 z:0 #D2B48C),
+  seat-plank-3 (cube w:1.2 h:0.05 d:0.15 z:0.15 #DEB887),
+  leg-left (cube w:0.08 h:0.4 d:0.3 x:-0.5 y:-0.2 #4A3728),
+  leg-right (cube w:0.08 h:0.4 d:0.3 x:0.5 y:-0.2 #4A3728),
+  back-support (cube w:1.2 h:0.5 d:0.05 z:-0.2 y:0.25 #8B6914)
+]
+
+bed → children: [
+  frame (cube w:0.9 h:0.1 d:2 #4A3728), mattress (cube w:0.85 h:0.15 d:1.8 y:0.12 #C4A882),
+  pillow (cube w:0.6 h:0.1 d:0.3 y:0.22 z:-0.7 #DDDDDD),
+  leg-fl (cube w:0.08 h:0.3 d:0.08 x:-0.4 z:-0.9 y:-0.15 #4A3728),
+  leg-fr (cube w:0.08 h:0.3 d:0.08 x:0.4 z:-0.9 y:-0.15),
+  leg-bl (cube w:0.08 h:0.3 d:0.08 x:-0.4 z:0.9 y:-0.15),
+  leg-br (cube w:0.08 h:0.3 d:0.08 x:0.4 z:0.9 y:-0.15),
+  headboard (cube w:0.9 h:0.4 d:0.08 z:-0.95 y:0.15 #5C3A1E)
+]
+
+table → children: [
+  top (cube w:1.2 h:0.05 d:0.6 #8B6914), leg-1 (cube w:0.06 h:0.7 d:0.06 x:-0.5 z:-0.22),
+  leg-2 (x:0.5 z:-0.22), leg-3 (x:-0.5 z:0.22), leg-4 (x:0.5 z:0.22)
+]
+
+chair → children: [
+  seat (cube w:0.4 h:0.04 d:0.4 #DEB887), back (cube w:0.4 h:0.4 d:0.04 z:-0.18 y:0.2),
+  leg-fl (cube w:0.04 h:0.45 d:0.04 x:-0.16 z:0.16 y:-0.22),
+  leg-fr (x:0.16 z:0.16), leg-bl (x:-0.16 z:-0.16), leg-br (x:0.16 z:-0.16)
+]
+
+barrel → children: [
+  body (cylinder r:0.3 h:0.8 #8B4513), top-rim (cylinder r:0.32 h:0.04 y:0.4 #708090),
+  bottom-rim (cylinder r:0.32 h:0.04 y:-0.4 #708090),
+  mid-band (cylinder r:0.33 h:0.03 y:0 #708090 metalness:0.6)
+]
+
+DOORS & BARRIERS:
+
+prison_door → children: [
+  frame-left (cube w:0.08 h:2.2 d:0.08 x:-0.5 #708090 metalness:0.8),
+  frame-right (x:0.5), frame-top (cube w:1.1 h:0.08 d:0.08 y:1.1),
+  bar-1 (cube w:0.04 h:2 d:0.04 x:-0.33 #708090 metalness:0.7),
+  bar-2 (x:-0.17), bar-3 (x:0), bar-4 (x:0.17), bar-5 (x:0.33),
+  cross-bar-top (cube w:1 h:0.04 d:0.04 y:0.7 #708090),
+  cross-bar-mid (y:0), cross-bar-bottom (y:-0.7)
+]
+
+window_barred → children: [
+  frame (cube w:0.8 h:1 d:0.06 #5C5C5C), glass (cube w:0.7 h:0.9 d:0.02 #87CEEB opacity:0.3),
+  bar-1 (cube w:0.03 h:0.9 d:0.03 x:-0.2 #708090 metalness:0.7),
+  bar-2 (x:0), bar-3 (x:0.2)
+]
+
+ENVIRONMENT DETAILS:
+
 lamp_post → children: [
-  base (cylinder, small), pole (cylinder, tall thin), shade (cylinder, inverted),
-  bulb (sphere, emissive)
+  base (cylinder r:0.15 h:0.1 #5C5C5C), pole (cylinder r:0.05 h:3.5 #708090),
+  arm (cube w:0.6 h:0.05 d:0.05 y:3.5 #708090), shade (cylinder r:0.2 h:0.15 y:3.6 #333333),
+  bulb (sphere r:0.08 y:3.45 emissive:#FFA500 emissiveIntensity:0.8)
 ]
 
 fence → children: [
-  post-1, post-2, post-3, post-4 (cylinders, evenly spaced),
-  rail-top (cube, long thin), rail-bottom (cube, long thin)
+  post-1 (cylinder r:0.05 h:1.5 x:0 #4A3728), post-2 (x:2), post-3 (x:4), post-4 (x:6),
+  rail-top (cube w:6 h:0.06 d:0.06 y:1.3 #5C3A1E),
+  rail-bottom (cube w:6 h:0.06 d:0.06 y:0.5 #5C3A1E)
 ]
 
 tree → children: [
-  trunk (cylinder, brown), canopy-1 (sphere, green), canopy-2 (sphere, lighter green),
-  canopy-3 (sphere, offset)
+  trunk (cylinder r:0.3 h:4 #4A3728), canopy-1 (sphere r:2.5 y:5 #228B22),
+  canopy-2 (sphere r:2 y:5.5 x:1 #2E8B2E), canopy-3 (sphere r:1.8 y:4.5 x:-0.8 z:0.5 #32CD32)
 ]
+
+rock → children: [
+  base (sphere r:0.8 sy:0.6 #7A7A7A roughness:1), top (sphere r:0.5 y:0.3 x:0.1 #8B8682)
+]
+
+well → children: [
+  base (cylinder r:0.8 h:0.8 #6B6B6B), rim (cylinder r:0.9 h:0.1 y:0.4 #5C5C5C),
+  post-left (cube w:0.1 h:1.5 d:0.1 x:-0.6 y:0.75 #4A3728),
+  post-right (x:0.6), crossbeam (cube w:1.4 h:0.08 d:0.08 y:1.5 #4A3728),
+  bucket (cylinder r:0.15 h:0.2 y:0.8 #708090 metalness:0.6)
+]
+
+COURTYARD COMPOSITION:
+A courtyard is a group containing multiple sub-elements:
+  courtyard → children: [
+    bench-1, bench-2 (see bench above, placed along edges),
+    path-tiles (3-5 planes, alternating colors #5C5C5C/#4A4A4A),
+    lamp-1, lamp-2 (see lamp_post above, at entrances),
+    well or fountain (see well above, at center),
+    decorative rocks or bushes (2-3 spheres, green/gray)
+  ]
+
+DETAIL RULE (non-negotiable):
+- ZERO single-primitive objects. Every structure MUST have 3+ children.
+- Props (bench, bed, table, chair, barrel) MUST have 4+ children.
+- Doors MUST have frame + bars/panels (5+ children for prison bars).
+- Trees MUST have trunk + 2-3 canopy spheres.
+- Use VARIED colors within each object (not all same color).
 
 ═══════════════════════════════════════════════════════════
 REPETITION PATTERNS
@@ -374,58 +467,49 @@ Emissive:       emissive:"#FFA500" emissiveIntensity:0.8 (for lit windows, torch
 Ground:         #3A3A3A, #2D2D2D, #4A4A3A (dirt: #8B7355, grass: #228B22)
 
 ═══════════════════════════════════════════════════════════
-MINIMUM COMPLEXITY
+MINIMUM COMPLEXITY & DETAIL BUDGET
 ═══════════════════════════════════════════════════════════
 - MINIMUM 20 top-level structures in scene.structures[]
-- Each building/tower/gate MUST have 3+ children
-- Each cell/room MUST have 4+ children (walls + door + furniture)
-- Total entity count (structures + all nested children) should be 80-200+
+- Buildings/towers/gates: 5+ children each (walls+roof+door+windows)
+- Cells/rooms: 6+ children each (walls+door+window+furniture)
+- Props (bench/bed/table/chair/barrel): 4+ children each
+- Doors (prison): 7+ children (frame+bars+crossbars)
+- Trees: 3+ children (trunk + canopy spheres)
+- ZERO single-primitive objects anywhere in the scene
+- Total entity count (structures + all nested children): 150-500
 - Use 4-8 light structures for proper illumination
 - HARD CAPS: maxLights=8, maxModels=100, maxEntities=500
 
 ═══════════════════════════════════════════════════════════
-EXAMPLE: WATCH TOWER STRUCTURE
+EXAMPLE: WATCH TOWER (8 children — proper detail)
 ═══════════════════════════════════════════════════════════
 {
-  "id": "tower-nw",
-  "type": "tower",
-  "zone": "NW",
+  "id": "tower-nw", "type": "tower", "zone": "NW",
   "transform": { "x": -25, "z": -25 },
   "children": [
-    {
-      "id": "tower-nw-base",
-      "type": "prop",
-      "transform": { "y": 1.5 },
+    { "id": "tower-nw-base", "type": "prop", "transform": { "y": 1.5 },
       "geometry": { "kind": "cube", "width": 4, "height": 3, "depth": 4 },
-      "material": { "color": "#6B6B6B", "roughness": 0.9 }
-    },
-    {
-      "id": "tower-nw-shaft",
-      "type": "pillar",
-      "transform": { "y": 8 },
+      "material": { "color": "#6B6B6B", "roughness": 0.9 } },
+    { "id": "tower-nw-shaft", "type": "pillar", "transform": { "y": 8 },
       "geometry": { "kind": "cylinder", "radius": 1.5, "height": 10 },
-      "material": { "color": "#7A7A7A", "roughness": 0.85 }
-    },
-    {
-      "id": "tower-nw-platform",
-      "type": "floor",
-      "transform": { "y": 13.5 },
+      "material": { "color": "#7A7A7A", "roughness": 0.85 } },
+    { "id": "tower-nw-platform", "type": "floor", "transform": { "y": 13.5 },
       "geometry": { "kind": "cube", "width": 5, "height": 0.3, "depth": 5 },
-      "material": { "color": "#5C5C5C", "metalness": 0.2 }
-    },
-    {
-      "id": "tower-nw-railing",
-      "type": "fence",
-      "transform": { "y": 14.5 },
-      "geometry": { "kind": "cube", "width": 5, "height": 1, "depth": 0.1 },
-      "material": { "color": "#708090", "metalness": 0.7, "roughness": 0.3 }
-    },
-    {
-      "id": "tower-nw-spotlight",
-      "type": "light",
-      "transform": { "y": 15 },
-      "lightProps": { "type": "spot", "intensity": 2, "color": "#FFFFCC", "distance": 30, "angle": 45 }
-    }
+      "material": { "color": "#5C5C5C", "metalness": 0.2 } },
+    { "id": "tower-nw-rail-n", "type": "fence", "transform": { "y": 14.2, "z": -2.4 },
+      "geometry": { "kind": "cube", "width": 5, "height": 0.8, "depth": 0.08 },
+      "material": { "color": "#708090", "metalness": 0.7, "roughness": 0.3 } },
+    { "id": "tower-nw-rail-s", "type": "fence", "transform": { "y": 14.2, "z": 2.4 },
+      "geometry": { "kind": "cube", "width": 5, "height": 0.8, "depth": 0.08 },
+      "material": { "color": "#708090", "metalness": 0.7 } },
+    { "id": "tower-nw-rail-e", "type": "fence", "transform": { "y": 14.2, "x": 2.4 },
+      "geometry": { "kind": "cube", "width": 0.08, "height": 0.8, "depth": 5 },
+      "material": { "color": "#708090", "metalness": 0.7 } },
+    { "id": "tower-nw-rail-w", "type": "fence", "transform": { "y": 14.2, "x": -2.4 },
+      "geometry": { "kind": "cube", "width": 0.08, "height": 0.8, "depth": 5 },
+      "material": { "color": "#708090", "metalness": 0.7 } },
+    { "id": "tower-nw-spotlight", "type": "light", "transform": { "y": 15 },
+      "lightProps": { "type": "spot", "intensity": 2, "color": "#FFFFCC", "distance": 30, "angle": 45 } }
   ]
 }
 
