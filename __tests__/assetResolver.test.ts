@@ -36,10 +36,16 @@ function makeStructure(
 // ─── resolveAsset: strict matching ─────────────────────────────────────────
 
 describe("resolveAsset", () => {
-  it("returns null for unknown keywords (cat, chair, sword)", () => {
+  it("returns null for unknown keywords (cat, sword)", () => {
     expect(resolveAsset(["cat"], "creature")).toBeNull();
-    expect(resolveAsset(["chair"], "furniture")).toBeNull();
     expect(resolveAsset(["sword"], "weapon")).toBeNull();
+  });
+
+  it("resolves 'chair' to SheenChair model", () => {
+    const chair = resolveAsset(["chair"], "furniture");
+    expect(chair).not.toBeNull();
+    expect(chair!.id).toBe("chair");
+    expect(chair!.modelUrl).toContain("SheenChair");
   });
 
   it("returns null for generic terms that previously caused false positives", () => {

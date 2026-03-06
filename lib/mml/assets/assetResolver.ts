@@ -65,10 +65,12 @@ export function classifyAssetCategory(
     // characters / animals
     creature: "character", horse: "character", fox: "character",
     fish: "character", astronaut: "character", robot: "character",
-    duck: "character",
+    duck: "character", dragon: "character",
 
     // furniture
     bench: "furniture", table: "furniture", chair: "furniture",
+    sofa: "furniture", couch: "furniture", stool: "furniture",
+    ottoman: "furniture", refrigerator: "furniture", fridge: "furniture",
     furniture: "furniture",
 
     // structures
@@ -82,9 +84,13 @@ export function classifyAssetCategory(
     // lighting
     lamp: "lighting", lantern: "lighting", light: "lighting",
 
+    // vehicles (extended)
+    car: "vehicle",
+
     // environment / nature
     tree: "environment", rock: "environment", water: "environment",
-    nature: "environment",
+    nature: "environment", plant: "environment", flower: "environment",
+    flowers: "environment",
   };
 
   if (TYPE_CATEGORY[t]) return TYPE_CATEGORY[t];
@@ -103,20 +109,43 @@ export function classifyAssetCategory(
 // Only maps types that have known matching assets. Keeps matches tight.
 
 const TYPE_SEARCH_TAGS: Record<string, string[]> = {
-  lamp: ["lantern"],
+  // lighting
+  lamp: ["lamp", "lantern"],
   lantern: ["lantern"],
-  tree: ["tree"],
-  rock: ["rock"],
-  barrel: ["barrel"],
-  crate: ["crate"],
+  // furniture
+  chair: ["chair", "seat"],
+  sofa: ["sofa", "couch"],
+  couch: ["sofa", "couch"],
+  stool: ["pouf", "stool"],
+  ottoman: ["pouf", "ottoman"],
+  fridge: ["refrigerator"],
+  refrigerator: ["refrigerator"],
+  // vehicles
+  car: ["car", "automobile"],
   truck: ["truck"],
   rocket: ["rocket"],
+  // nature / environment
+  tree: ["tree"],
+  rock: ["rock"],
+  plant: ["plant"],
+  flower: ["flowers"],
+  flowers: ["flowers"],
+  // props
+  barrel: ["barrel"],
+  crate: ["crate"],
+  cup: ["teacup", "cup"],
+  mug: ["teacup", "mug"],
+  watch: ["watch", "clock"],
+  skull: ["skull"],
+  candle: ["candle"],
+  // characters
   horse: ["horse"],
   fox: ["fox"],
   fish: ["fish"],
   robot: ["robot"],
   duck: ["duck"],
   astronaut: ["astronaut"],
+  dragon: ["dragon"],
 };
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -191,8 +220,8 @@ export function resolveAsset(
 function resolveStructureAsset(
   s: BlueprintStructure,
 ): BlueprintStructure {
-  // Skip if already has model, geometry, children, light, or label
-  if (s.modelSrc || s.geometry || s.children?.length || s.lightProps || s.label) {
+  // Skip if already has model, geometry, children, or light
+  if (s.modelSrc || s.geometry || s.children?.length || s.lightProps) {
     return s;
   }
   if (s.type === "light") return s;
@@ -239,10 +268,10 @@ function resolveStructureAsset(
 
 function mapTagsToCategory(tags: string[]): EnvironmentAsset["category"] {
   const tagSet = new Set(tags.map((t) => t.toLowerCase()));
-  if (tagSet.has("vehicle") || tagSet.has("car") || tagSet.has("truck")) return "vehicle";
-  if (tagSet.has("character") || tagSet.has("animal")) return "character";
-  if (tagSet.has("furniture")) return "furniture";
-  if (tagSet.has("light") || tagSet.has("lantern")) return "lighting";
-  if (tagSet.has("environment")) return "environment";
+  if (tagSet.has("vehicle") || tagSet.has("car") || tagSet.has("truck") || tagSet.has("automobile")) return "vehicle";
+  if (tagSet.has("character") || tagSet.has("animal") || tagSet.has("creature") || tagSet.has("dragon")) return "character";
+  if (tagSet.has("furniture") || tagSet.has("chair") || tagSet.has("sofa") || tagSet.has("couch") || tagSet.has("seat")) return "furniture";
+  if (tagSet.has("light") || tagSet.has("lantern") || tagSet.has("lamp") || tagSet.has("lighting")) return "lighting";
+  if (tagSet.has("environment") || tagSet.has("nature") || tagSet.has("plant") || tagSet.has("flowers")) return "environment";
   return "prop";
 }

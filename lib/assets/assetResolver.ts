@@ -63,9 +63,6 @@ function shouldSkipResolution(s: BlueprintStructure): boolean {
   if (s.children && s.children.length > 0) return true;
   // Is a light
   if (s.type === "light" || s.lightProps) return true;
-  // Is a label
-  if (s.label) return true;
-
   return false;
 }
 
