@@ -8,7 +8,7 @@ import type { BlueprintJSON, PatchOperation } from "@/types/blueprint";
 import { generateMml } from "@/lib/blueprint/generateMml";
 import { validateAndFixMml } from "@/lib/mml/alphaValidator";
 import { applyBlueprintPatch } from "@/lib/blueprint/patch";
-import { enhanceBlueprint } from "@/lib/blueprint/procedural";
+// Builder pipeline is now internal to generateMml()
 
 function synthesizeReasoning(data: Record<string, unknown>): ReasoningStep[] {
   const steps: ReasoningStep[] = [];
@@ -250,9 +250,8 @@ export function useGenerate() {
             return;
           }
 
-          // Enhance patched blueprint (includes grounding)
-          let newBlueprint = patchResult.blueprint;
-          newBlueprint = enhanceBlueprint(newBlueprint);
+          // Builder pipeline is now internal to generateMml()
+          const newBlueprint = patchResult.blueprint;
 
           // Log blueprint state after patch
           store.addLog({ type: "info", message: `[PATCH] blueprint_after: ${newBlueprint.scene.structures.length} structures, title="${newBlueprint.meta.title}"` });

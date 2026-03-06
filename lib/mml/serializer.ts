@@ -1,0 +1,283 @@
+/**
+ * MML Serializer — pure deterministic function.
+ *
+ * Converts a fully-built BlueprintJSON (with geometry on structures) into
+ * an MML string. This module is ONLY responsible for string output.
+ * It does NOT generate, infer, or enhance geometry.
+ *
+ * Same input → same output, always.
+ */
+
+import type { BlueprintJSON, BlueprintStructure, Zone } from "@/types/blueprint";
+import { searchEnvironmentAssets } from "@/lib/assets/environment-catalog";
+import { ZONE_ORDER } from "@/lib/layout/zones";
+
+// ─── Main entry ──────────────────────────────────────────────────────────────
+
+export function serializeScene(blueprint: BlueprintJSON): string {
+  const lines: string[] = [];
+  const rootId = blueprint.scene.rootId || "root";
+
+  lines.push(`<m-group id="${esc(rootId)}">`);
+
+  // Ground plane (only if explicitly specified)
+  if (blueprint.scene.ground) {
+    const g = blueprint.scene.ground;
+    lines.push(
+      `  <m-plane id="ground" width="${n(g.width)}" height="${n(g.height)}" color="${esc(g.color)}" y="${n(g.y)}" rx="-90"></m-plane>`
+    );
+  }
+
+  // Group structures by zone (if zones are used)
+  const zoned = new Map<Zone, BlueprintStructure[]>();
+  const unzoned: BlueprintStructure[] = [];
+
+  for (const structure of blueprint.scene.structures) {
+    if (structure.zone) {
+      const list = zoned.get(structure.zone as Zone) || [];
+      list.push(structure);
+      zoned.set(structure.zone as Zone, list);
+    } else {
+      unzoned.push(structure);
+    }
+  }
+
+  // Render zoned structures in deterministic order
+  for (const zoneName of ZONE_ORDER) {
+    const structures = zoned.get(zoneName);
+    if (!structures || structures.length === 0) continue;
+    lines.push(`  <m-group id="zone-${zoneName.toLowerCase()}">`);
+    for (const structure of structures) {
+      renderStructure(structure, 2, lines);
+    }
+    lines.push(`  </m-group>`);
+  }
+
+  // Render unzoned structures at top level (backward compatibility)
+  for (const structure of unzoned) {
+    renderStructure(structure, 1, lines);
+  }
+
+  // Render pathways as connecting ground planes
+  if (blueprint.scene.pathways) {
+    const structureMap = new Map(blueprint.scene.structures.map((s) => [s.id, s]));
+    for (const pathway of blueprint.scene.pathways) {
+      const fromS = structureMap.get(pathway.from);
+      const toS = structureMap.get(pathway.to);
+      if (!fromS || !toS) continue;
+
+      const dx = toS.transform.x - fromS.transform.x;
+      const dz = toS.transform.z - fromS.transform.z;
+      const length = Math.sqrt(dx * dx + dz * dz);
+      if (length < 0.1) continue;
+      const midX = (fromS.transform.x + toS.transform.x) / 2;
+      const midZ = (fromS.transform.z + toS.transform.z) / 2;
+      const angle = Math.atan2(dx, dz) * (180 / Math.PI);
+      const color = pathway.material?.color || "#5C5C5C";
+      const width = pathway.width || 2;
+
+      lines.push(
+        `  <m-plane id="path-${esc(pathway.from)}-to-${esc(pathway.to)}" ` +
+        `width="${n(width)}" height="${n(length)}" ` +
+        `x="${n(midX)}" y="0.02" z="${n(midZ)}" ` +
+        `rx="-90" ry="${n(angle)}" color="${esc(color)}"></m-plane>`
+      );
+    }
+  }
+
+  lines.push(`</m-group>`);
+  return lines.join("\n");
+}
+
+// ─── Structure rendering ─────────────────────────────────────────────────────
+
+function renderStructure(
+  s: BlueprintStructure,
+  indent: number,
+  lines: string[]
+): void {
+  const pad = "  ".repeat(indent);
+
+  // Light structures → m-light
+  if (s.type === "light" && s.lightProps) {
+    const lp = s.lightProps;
+    const t = s.transform;
+    const attrs = [
+      `id="${esc(s.id)}"`,
+      `type="${esc(lp.type)}"`,
+      `color="${esc(lp.color)}"`,
+      `intensity="${n(lp.intensity)}"`,
+      ...posAttrs(t),
+    ];
+    if (lp.distance != null) attrs.push(`distance="${n(lp.distance)}"`);
+    if (lp.angle != null) attrs.push(`angle="${n(lp.angle)}"`);
+    lines.push(`${pad}<m-light ${attrs.join(" ")}></m-light>`);
+    return;
+  }
+
+  // Model reference (explicit modelSrc)
+  if (s.modelSrc) {
+    const t = s.transform;
+    const attrs = [
+      `id="${esc(s.id)}"`,
+      `src="${esc(s.modelSrc)}"`,
+      ...transformAttrs(t),
+    ];
+    lines.push(`${pad}<m-model ${attrs.join(" ")}></m-model>`);
+    return;
+  }
+
+  // Auto-resolve from environment catalog: if structure has no geometry,
+  // no children, no lightProps, and no label, try matching by type/id
+  if (!s.geometry && !s.children?.length && !s.lightProps && !s.label) {
+    const match = searchEnvironmentAssets(s.type) || searchEnvironmentAssets(s.id);
+    const asset = (match && match.length > 0) ? match[0] : null;
+    if (asset) {
+      const t = s.transform;
+      const scale = asset.defaultScale;
+      const merged = {
+        ...t,
+        sx: t.sx !== 1 ? t.sx : scale,
+        sy: t.sy !== 1 ? t.sy : scale,
+        sz: t.sz !== 1 ? t.sz : scale,
+      };
+      const attrs = [
+        `id="${esc(s.id)}"`,
+        `src="${esc(asset.modelUrl)}"`,
+        ...transformAttrs(merged),
+      ];
+      lines.push(`${pad}<m-model ${attrs.join(" ")}></m-model>`);
+      return;
+    }
+  }
+
+  // Label
+  if (s.label && !s.geometry) {
+    const t = s.transform;
+    const attrs = [
+      `id="${esc(s.id)}"`,
+      `content="${esc(s.label)}"`,
+      ...posAttrs(t),
+    ];
+    if (s.material?.color) attrs.push(`color="${esc(s.material.color)}"`);
+    lines.push(`${pad}<m-label ${attrs.join(" ")}></m-label>`);
+    return;
+  }
+
+  // Geometry primitive or group
+  const hasChildren = s.children && s.children.length > 0;
+  const hasGeometry = !!s.geometry;
+
+  if (hasGeometry && !hasChildren) {
+    lines.push(`${pad}${renderPrimitive(s)}`);
+    return;
+  }
+
+  if (hasGeometry && hasChildren) {
+    const t = s.transform;
+    lines.push(`${pad}<m-group id="${esc(s.id)}" ${transformAttrs(t).join(" ")}>`);
+    const selfGeo = { ...s, id: `${s.id}-body`, children: undefined, transform: { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, sx: 1, sy: 1, sz: 1 } } as BlueprintStructure;
+    lines.push(`${pad}  ${renderPrimitive(selfGeo)}`);
+    for (const child of s.children!) {
+      renderStructure(child, indent + 1, lines);
+    }
+    lines.push(`${pad}</m-group>`);
+    return;
+  }
+
+  if (hasChildren) {
+    const t = s.transform;
+    lines.push(`${pad}<m-group id="${esc(s.id)}" ${transformAttrs(t).join(" ")}>`);
+    for (const child of s.children!) {
+      renderStructure(child, indent + 1, lines);
+    }
+    lines.push(`${pad}</m-group>`);
+    return;
+  }
+
+  // Fallback: empty group
+  const t = s.transform;
+  lines.push(`${pad}<m-group id="${esc(s.id)}" ${transformAttrs(t).join(" ")}></m-group>`);
+}
+
+// ─── Primitive rendering ─────────────────────────────────────────────────────
+
+function renderPrimitive(s: BlueprintStructure): string {
+  if (!s.geometry) return `<m-group id="${esc(s.id)}"></m-group>`;
+
+  const g = s.geometry;
+  const m = s.material;
+  const t = s.transform;
+  const tag = kindToTag(g.kind);
+
+  const attrs: string[] = [`id="${esc(s.id)}"`, ...transformAttrs(t)];
+
+  if (g.kind === "cube") {
+    if (g.width != null) attrs.push(`width="${n(g.width)}"`);
+    if (g.height != null) attrs.push(`height="${n(g.height)}"`);
+    if (g.depth != null) attrs.push(`depth="${n(g.depth)}"`);
+  } else if (g.kind === "cylinder") {
+    if (g.radius != null) attrs.push(`radius="${n(g.radius)}"`);
+    if (g.height != null) attrs.push(`height="${n(g.height)}"`);
+  } else if (g.kind === "sphere") {
+    if (g.radius != null) attrs.push(`radius="${n(g.radius)}"`);
+  } else if (g.kind === "plane") {
+    if (g.width != null) attrs.push(`width="${n(g.width)}"`);
+    if (g.height != null) attrs.push(`height="${n(g.height)}"`);
+  }
+
+  if (m) {
+    attrs.push(`color="${esc(m.color)}"`);
+    if (m.opacity != null) attrs.push(`opacity="${n(m.opacity)}"`);
+    if (m.metalness != null) attrs.push(`metalness="${n(m.metalness)}"`);
+    if (m.roughness != null) attrs.push(`roughness="${n(m.roughness)}"`);
+    if (m.emissive) attrs.push(`emissive="${esc(m.emissive)}"`);
+    if (m.emissiveIntensity != null) attrs.push(`emissive-intensity="${n(m.emissiveIntensity)}"`);
+  }
+
+  return `<${tag} ${attrs.join(" ")}></${tag}>`;
+}
+
+// ─── Utilities ───────────────────────────────────────────────────────────────
+
+function kindToTag(kind: string): string {
+  switch (kind) {
+    case "cube": return "m-cube";
+    case "cylinder": return "m-cylinder";
+    case "sphere": return "m-sphere";
+    case "plane": return "m-plane";
+    default: return "m-cube";
+  }
+}
+
+function transformAttrs(t: BlueprintStructure["transform"]): string[] {
+  const attrs: string[] = [];
+  if (t.x !== 0) attrs.push(`x="${n(t.x)}"`);
+  if (t.y !== 0) attrs.push(`y="${n(t.y)}"`);
+  if (t.z !== 0) attrs.push(`z="${n(t.z)}"`);
+  if (t.rx !== 0) attrs.push(`rx="${n(t.rx)}"`);
+  if (t.ry !== 0) attrs.push(`ry="${n(t.ry)}"`);
+  if (t.rz !== 0) attrs.push(`rz="${n(t.rz)}"`);
+  if (t.sx !== 1) attrs.push(`sx="${n(t.sx)}"`);
+  if (t.sy !== 1) attrs.push(`sy="${n(t.sy)}"`);
+  if (t.sz !== 1) attrs.push(`sz="${n(t.sz)}"`);
+  return attrs;
+}
+
+function posAttrs(t: BlueprintStructure["transform"]): string[] {
+  const attrs: string[] = [];
+  if (t.x !== 0) attrs.push(`x="${n(t.x)}"`);
+  if (t.y !== 0) attrs.push(`y="${n(t.y)}"`);
+  if (t.z !== 0) attrs.push(`z="${n(t.z)}"`);
+  return attrs;
+}
+
+/** Stringify number, stripping trailing zeros */
+function n(v: number): string {
+  return String(Math.round(v * 1000) / 1000);
+}
+
+/** Escape HTML attribute values */
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}

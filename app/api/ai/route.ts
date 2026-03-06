@@ -8,7 +8,7 @@ import { validateLayout } from "@/lib/layout/validator";
 import { classifyRequest } from "@/lib/classifier";
 import { buildObjectSystemPrompt, buildSceneSystemPrompt, buildPatchSystemPrompt } from "@/lib/llm/prompts";
 import { buildEnvironmentCatalogPrompt } from "@/lib/assets/environment-catalog";
-import { enhanceBlueprint, addShowcaseSetup } from "@/lib/blueprint/procedural";
+// Builder + serializer pipeline is now internal to generateMml
 import type { BlueprintJSON, AiResponse, AiNewSceneResponse, AiPatchResponse } from "@/types/blueprint";
 
 // Rate limiting
@@ -194,11 +194,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Deterministic enhancement pipeline:
-      // 1. Enhance structures — parts→geometry, bare structures→inferred parts
-      let blueprint = enhanceBlueprint(bpResult.blueprint);
-      // 2. Add showcase setup for objects (lights + pedestal)
-      blueprint = addShowcaseSetup(blueprint);
+      // Builder pipeline is now internal to generateMml()
+      const blueprint = bpResult.blueprint;
 
       // Layout validation (zone/position consistency)
       const layoutResult = validateLayout(blueprint);
