@@ -17,6 +17,13 @@ import { buildVehicleStructure } from "./archetypes/vehicle";
 import { buildFurnitureStructure } from "./archetypes/furniture";
 import { buildStructureStructure } from "./archetypes/structure";
 import { buildPropStructure } from "./archetypes/prop";
+import { buildCreatureStructure } from "./archetypes/creature";
+import { buildMachineStructure } from "./archetypes/machine";
+import { buildContainerStructure } from "./archetypes/container";
+import { buildNatureStructure } from "./archetypes/nature";
+import { buildWeaponStructure } from "./archetypes/weapon";
+import { buildToolStructure } from "./archetypes/tool";
+import { buildLightingStructure } from "./archetypes/lighting";
 
 /**
  * Expand an object-mode blueprint's structures with procedural geometry.
@@ -65,6 +72,20 @@ function dispatchBuilder(
     case "structure":
     case "tower":
       return buildStructureStructure(structure, parts, theme);
+    case "creature":
+      return buildCreatureStructure(structure, parts, theme);
+    case "machine":
+      return buildMachineStructure(structure, parts, theme);
+    case "container":
+      return buildContainerStructure(structure, parts, theme);
+    case "nature":
+      return buildNatureStructure(structure, parts, theme);
+    case "weapon":
+      return buildWeaponStructure(structure, parts, theme);
+    case "tool":
+      return buildToolStructure(structure, parts, theme);
+    case "lighting":
+      return buildLightingStructure(structure, parts, theme);
     default:
       return buildPropStructure(structure, parts, archetype, theme);
   }

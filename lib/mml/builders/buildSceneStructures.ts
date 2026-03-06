@@ -20,6 +20,13 @@ import { buildVehicleStructure } from "./archetypes/vehicle";
 import { buildFurnitureStructure } from "./archetypes/furniture";
 import { buildStructureStructure } from "./archetypes/structure";
 import { buildPropStructure } from "./archetypes/prop";
+import { buildCreatureStructure } from "./archetypes/creature";
+import { buildMachineStructure } from "./archetypes/machine";
+import { buildContainerStructure } from "./archetypes/container";
+import { buildNatureStructure } from "./archetypes/nature";
+import { buildWeaponStructure } from "./archetypes/weapon";
+import { buildToolStructure } from "./archetypes/tool";
+import { buildLightingStructure } from "./archetypes/lighting";
 
 /**
  * Expand a scene-mode blueprint's structures with procedural geometry.
@@ -59,9 +66,25 @@ const TYPE_TO_BUILDER: Record<string, string> = {
   bridge: "structure",
   wall: "structure",
   fence: "structure",
+  door: "structure",
+  window: "structure",
+  pillar: "structure",
   bench: "furniture",
   table: "furniture",
   chair: "furniture",
+  furniture: "furniture",
+  creature: "creature",
+  machine: "machine",
+  barrel: "container",
+  crate: "container",
+  container: "container",
+  tree: "nature",
+  rock: "nature",
+  water: "nature",
+  nature: "nature",
+  lamp: "lighting",
+  weapon: "weapon",
+  tool: "tool",
 };
 
 function enhanceSceneStructure(
@@ -93,6 +116,20 @@ function enhanceSceneStructure(
     case "structure":
     case "tower":
       return buildStructureStructure(s, undefined, theme);
+    case "creature":
+      return buildCreatureStructure(s, undefined, theme);
+    case "machine":
+      return buildMachineStructure(s, undefined, theme);
+    case "container":
+      return buildContainerStructure(s, undefined, theme);
+    case "nature":
+      return buildNatureStructure(s, undefined, theme);
+    case "weapon":
+      return buildWeaponStructure(s, undefined, theme);
+    case "tool":
+      return buildToolStructure(s, undefined, theme);
+    case "lighting":
+      return buildLightingStructure(s, undefined, theme);
     default:
       return buildPropStructure(s, undefined, undefined, theme);
   }

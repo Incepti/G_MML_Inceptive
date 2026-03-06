@@ -8,6 +8,11 @@ export type GenerationMode = "OBJECT" | "SCENE";
 
 export interface ClassificationResult {
   generationMode: GenerationMode;
+  /** The detected object/scene name (e.g. "car", "prison") */
+  intentName: string;
+  /** Broad archetype category (e.g. "vehicle", "creature", "environment") */
+  archetype: string;
+  /** @deprecated Alias for archetype — kept for backwards compat */
   intentType: string;
   needsEnvironmentCatalog: boolean;
 }
@@ -112,11 +117,14 @@ export function classifyRequest(prompt: string): ClassificationResult {
   // 3. Check for object keywords
   const hasObjectKeyword = OBJECT_PATTERNS.some((p) => p.test(normalized));
 
-  // 4. Determine archetype
-  let intentType = "unknown";
+  // 4. Determine archetype + extract intent name
+  let detectedArchetype = "unknown";
+  let intentName = "unknown";
   for (const { pattern, archetype } of ARCHETYPE_MAP) {
-    if (pattern.test(normalized)) {
-      intentType = archetype;
+    const match = normalized.match(pattern);
+    if (match) {
+      detectedArchetype = archetype;
+      intentName = match[1]?.toLowerCase() || archetype;
       break;
     }
   }
@@ -151,12 +159,20 @@ export function classifyRequest(prompt: string): ClassificationResult {
   const needsEnvironmentCatalog = generationMode === "SCENE";
 
   // If we couldn't detect an archetype but it's a scene, set it
-  if (intentType === "unknown" && generationMode === "SCENE") {
-    intentType = "environment";
+  if (detectedArchetype === "unknown" && generationMode === "SCENE") {
+    detectedArchetype = "environment";
+    intentName = "environment";
   }
-  if (intentType === "unknown" && generationMode === "OBJECT") {
-    intentType = "prop";
+  if (detectedArchetype === "unknown" && generationMode === "OBJECT") {
+    detectedArchetype = "prop";
+    intentName = "object";
   }
 
-  return { generationMode, intentType, needsEnvironmentCatalog };
+  return {
+    generationMode,
+    intentName,
+    archetype: detectedArchetype,
+    intentType: detectedArchetype, // backwards compat alias
+    needsEnvironmentCatalog,
+  };
 }
