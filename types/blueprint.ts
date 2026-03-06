@@ -147,6 +147,19 @@ export const CompositionSchema = z.object({
 
 export type Composition = z.infer<typeof CompositionSchema>;
 
+// ─── Blueprint Part (semantic part description from LLM) ────────────────────
+export const PartRoleEnum = z.enum(["primary", "secondary", "support", "detail"]);
+export type PartRole = z.infer<typeof PartRoleEnum>;
+
+export const BlueprintPartSchema = z.object({
+  name: z.string(),
+  role: PartRoleEnum,
+  shapeHint: z.string().default("box"),
+  symmetry: z.boolean().default(false),
+});
+
+export type BlueprintPart = z.infer<typeof BlueprintPartSchema>;
+
 // ─── Blueprint Meta ─────────────────────────────────────────────────────────
 export const MetaSchema = z.object({
   title: z.string().default("Untitled Scene"),
@@ -164,6 +177,7 @@ export const BlueprintSchema = z.object({
   intent: IntentSchema.default({}),
   style: StyleSchema.default({}),
   composition: CompositionSchema.default({}),
+  parts: BlueprintPartSchema.array().optional(),
   meta: MetaSchema.default({}),
   budgets: BudgetsSchema.default({}),
   scene: SceneSchema.default({}),

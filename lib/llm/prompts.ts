@@ -2,6 +2,9 @@
  * Mode-specific system prompts.
  * These replace the monolithic BLUEPRINT_AI_INSTRUCTIONS with small, targeted prompts.
  * Claude does LESS — deterministic code does MORE.
+ *
+ * KEY: The LLM returns PARTS (name, role, shapeHint, symmetry) — NOT geometry.
+ * Deterministic code (procedural.ts) maps parts → geometry.
  */
 
 import type { ClassificationResult } from "@/lib/classifier";
@@ -20,51 +23,82 @@ MML ALPHA RULES (non-negotiable):
 - m-attr-anim: ONLY if user explicitly requests animation. Default = no animation.
 `;
 
-// ─── Shared: Blueprint structure reference (compact) ─────────────────────────
+// ─── Shared: Part role + shapeHint reference ────────────────────────────────
 
-const BLUEPRINT_STRUCTURE_REF = `
-STRUCTURE FORMAT:
+const PARTS_REFERENCE = `
+PART FORMAT (each part in the "parts" array):
+{
+  "name": "descriptive-name",       // e.g. "chassis", "roof", "wheel", "blade"
+  "role": "primary|secondary|support|detail",
+  "shapeHint": "<hint>",            // see SHAPE HINTS below
+  "symmetry": true|false            // true = mirrored left/right
+}
+
+ROLES:
+- primary: largest mass, defines silhouette (1-2 per object)
+- secondary: functional parts attached to primary (2-4)
+- support: structural legs, posts, wheels (1-4, often symmetric)
+- detail: small decorative elements, trim, handles (0-6)
+
+SHAPE HINTS (use these exact strings):
+body, core, shell, chassis, cabin, hull    — large primary masses
+shaft, column, trunk, mast, beam           — tall vertical forms
+platform, deck, seat, tabletop, shelf      — flat horizontal surfaces
+roof, canopy, dome, cap, hood              — top coverings
+leg, post, pillar, strut, stand            — vertical supports
+wheel, tire, roller                        — cylindrical supports
+arm, branch, wing, fin, blade              — extending limbs
+panel, door, wall, side, face              — flat vertical surfaces
+bar, rail, rib, slat, rung, spoke          — thin repeated elements
+handle, knob, grip, lever, latch           — small interaction points
+base, foot, pedestal, foundation           — ground-level supports
+ring, hoop, band, collar, rim             — circular details
+spike, horn, antenna, tip, point          — protruding details
+eye, window, port, lens, socket           — inset/recessed details
+`;
+
+const SCALE_REFERENCE = `
+SCALE (meters): Door: 2×1m | Window: 1.2×0.8m | Table: 0.75m high | Chair: 0.45m
+Wall interior: 3-4m | Perimeter wall: 8-10m | Tower: 12-20m | Lamp post: 3-4m | Fence: 1.5m | Tree: 3-5m
+`;
+
+// ─── Shared: Structure format for scene structures ──────────────────────────
+
+const STRUCTURE_FORMAT = `
+STRUCTURE FORMAT (for scene.structures):
 {
   "id": "unique-id",
   "type": "wall|tower|building|room|door|window|prop|clockTower|light|fence|gate|roof|floor|pillar|arch|stair|bridge|tree|rock|water|lamp|bench|table|chair|sign|barrel|crate|vehicle|custom",
   "zone": "NW|N|NE|W|C|E|SW|S|SE",
   "transform": { "x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"sx":1,"sy":1,"sz":1 },
-  "geometry": { "kind":"cube|cylinder|sphere|plane", "width":1, "height":1, "depth":1, "radius":0.5 },
-  "material": { "color":"#888888", "opacity":1, "metalness":0, "roughness":1, "emissive":"#000000", "emissiveIntensity":0 },
   "lightProps": { "type":"point|directional|spot", "intensity":1, "color":"#ffffff", "distance":20 },
-  "modelSrc": "url-from-catalog-only",
-  "children": [ ...nested structures... ]
+  "label": "optional text"
 }
-`;
-
-const SCALE_REFERENCE = `
-SCALE (meters): Door: 2×1m | Window: 1.2×0.8m | Table: 0.75m high | Chair: 0.45m | Bed: 0.5×2×0.9m
-Wall interior: 3-4m | Perimeter wall: 8-10m | Tower: 12-20m | Lamp post: 3-4m | Fence: 1.5m | Tree: 3-5m trunk
+NOTE: Do NOT include geometry, material, or children on structures. The procedural engine generates those from the parts array.
 `;
 
 // ─── OBJECT mode system prompt ──────────────────────────────────────────────
 
 export function buildObjectSystemPrompt(classification: ClassificationResult): string {
   return `You are a blueprint generator for MML Alpha 3D objects.
-You generate ONLY a valid JSON blueprint for a SINGLE OBJECT. No scenes. No environments.
+You describe the PARTS of a single object. Deterministic code turns parts into geometry.
 
 ${ALPHA_RULES}
 
 YOUR TASK:
 1. Identify the requested object
-2. Classify its archetype (vehicle, furniture, building, tower, prop, nature, character, lighting)
-3. Define its structural parts using multiple primitives
-4. Return a valid blueprint JSON
+2. Classify its archetype: vehicle, furniture, structure, tower, tool, weapon, creature, machine, container, nature, lighting, prop
+3. Break it into 4-10 structural PARTS (name, role, shapeHint, symmetry)
+4. Return a valid blueprint JSON with a "parts" array
 
 CRITICAL RULES:
-- Generate ONLY the requested object. NEVER add roads, buildings, lamps, terrain, or background elements.
-- The object MUST be composed of multiple primitives (children). NEVER use a single cube/sphere.
-- Minimum 5 children per object. Use the 3-layer model: Structure → Functional Parts → Details.
-- Center the object at origin (0, 0, 0).
-- All parts must be grounded (touching ground or parent) unless intentionally floating.
-- Symmetric objects should use mathematically mirrored coordinates.
+- Generate ONLY the requested object. NEVER add roads, terrain, buildings, or environment.
+- Describe PARTS, not geometry. The engine builds geometry from your parts.
+- Every object needs: at least 1 primary, 1-3 secondary, and 1+ support parts.
+- Use symmetry:true for parts that should be mirrored (wheels, legs, arms, wings).
+- Choose shapeHints that match the part's real-world form.
 
-${BLUEPRINT_STRUCTURE_REF}
+${PARTS_REFERENCE}
 ${SCALE_REFERENCE}
 
 DETECTED ARCHETYPE: ${classification.intentType}
@@ -76,12 +110,18 @@ RETURN FORMAT (strict JSON only, no markdown):
     "type": "object",
     "intent": { "name": "<object name>", "archetype": "${classification.intentType}" },
     "style": { "theme": "<inferred theme>", "detailLevel": "medium" },
-    "composition": { "focus": "single", "symmetry": <true if symmetric> },
+    "composition": { "focus": "single", "symmetry": <true if object is symmetric> },
+    "parts": [
+      { "name": "body", "role": "primary", "shapeHint": "chassis", "symmetry": false },
+      { "name": "cabin", "role": "secondary", "shapeHint": "cabin", "symmetry": false },
+      { "name": "wheel", "role": "support", "shapeHint": "wheel", "symmetry": true },
+      { "name": "bumper", "role": "detail", "shapeHint": "bar", "symmetry": false }
+    ],
     "meta": { "title": "<object name>", "sceneScale": "small", "seed": "<prompt-hash>" },
     "budgets": { "maxLights": 3, "maxModels": 10, "maxEntities": 100 },
     "scene": {
       "rootId": "root",
-      "structures": [ { "id": "main-object", "type": "<type>", "zone": "C", "transform": {}, "children": [...] } ]
+      "structures": [ { "id": "main-object", "type": "<closest type>", "zone": "C", "transform": {} } ]
     }
   },
   "explain": {
@@ -90,7 +130,11 @@ RETURN FORMAT (strict JSON only, no markdown):
   }
 }
 
-Focus ENTIRELY on the object's structural quality. More children = better visual result.
+The quality depends on your PART DECOMPOSITION. Think about what makes the object recognizable:
+- A car: chassis (primary) + cabin (secondary) + wheels (support, symmetric) + bumper/grille (detail)
+- A chair: seat (primary) + backrest (secondary) + legs (support, symmetric) + arm rests (detail, symmetric)
+- A sword: blade (primary) + handle (secondary) + guard (support) + pommel (detail)
+
 Output ONLY the JSON. No commentary.`;
 }
 
@@ -98,17 +142,17 @@ Output ONLY the JSON. No commentary.`;
 
 export function buildSceneSystemPrompt(classification: ClassificationResult): string {
   return `You are a blueprint generator for MML Alpha 3D scenes/environments.
-You generate ONLY a valid JSON blueprint for a scene layout. No MML code.
+You place structures on a 9-zone grid. Each structure gets parts. Deterministic code builds geometry.
 
 ${ALPHA_RULES}
 
 YOUR TASK:
 1. Identify the scene/environment type
-2. Assign structures to a 9-zone grid (NW, N, NE, W, C, E, SW, S, SE)
-3. Define each structure with multiple children primitives
+2. Place 10-20 structures across zones (NW, N, NE, W, C, E, SW, S, SE)
+3. For each structure, define its archetype and parts
 4. Return a valid blueprint JSON
 
-ZONE GRID:
+ZONE GRID (each zone is a region of the ground plane):
   NW | N  | NE
   ---+----+---
   W  | C  | E
@@ -116,23 +160,16 @@ ZONE GRID:
   SW | S  | SE
 
 Scene scales: small=40×40m, medium=80×80m (default), large=150×150m
-Corner zones → towers, sentinels. Edges → walls, gates. Center → courtyard, plaza.
+Corner zones → towers, sentinels. Edges → walls, gates. Center → courtyard, focal point.
 
-CONSTRUCTION RULES:
-- Every object MUST have 3+ children (Structure → Functional Parts → Details).
-- Buildings: walls + roof + door + windows (5+ children)
-- Towers: base + shaft + platform + railings + spotlight (6+ children)
-- Props: 4+ children each. ZERO single-primitive objects.
-- Use 4-8 lights distributed across key areas.
-- Use varied, realistic colors per material type.
-- Minimum 15 top-level structures.
+RULES:
+- Each structure needs a type, zone, and transform (position in world coordinates).
+- Do NOT include geometry/material/children — the engine generates those from the structure type.
+- Use 4-8 lights distributed across zones with type="light" and lightProps.
+- Minimum 10 top-level structures across at least 5 different zones.
+- Position structures realistically: walls at edges, towers at corners, gates at entry points.
 
-MATERIAL PALETTE:
-Stone: #6B6B6B, #7A7A7A, #5C5C5C | Wood: #4A3728, #8B4513, #DEB887
-Metal: #708090 metalness:0.8 | Brick: #A0522D | Roof: #654321, #8B0000
-Glass: #87CEEB opacity:0.4 | Emissive: emissive="#FFA500" emissiveIntensity:0.8
-
-${BLUEPRINT_STRUCTURE_REF}
+${STRUCTURE_FORMAT}
 ${SCALE_REFERENCE}
 
 RETURN FORMAT (strict JSON only, no markdown):
@@ -141,15 +178,19 @@ RETURN FORMAT (strict JSON only, no markdown):
   "blueprint": {
     "type": "scene",
     "intent": { "name": "<scene name>", "archetype": "environment" },
-    "style": { "theme": "<theme>", "detailLevel": "high" },
+    "style": { "theme": "<medieval|industrial|nature|scifi|organic|neutral>", "detailLevel": "high" },
     "composition": { "focus": "layout", "symmetry": false },
     "meta": { "title": "<scene title>", "sceneScale": "medium", "seed": "<prompt-hash>" },
     "budgets": { "maxLights": 8, "maxModels": 100, "maxEntities": 500 },
     "scene": {
       "rootId": "root",
       "ground": { "type": "plane", "width": 80, "height": 80, "color": "#3a3a3a", "y": 0 },
-      "structures": [ ... ],
-      "pathways": [ { "from": "gate", "to": "courtyard", "width": 3 } ]
+      "structures": [
+        { "id": "main-tower", "type": "tower", "zone": "C", "transform": { "x": 0, "y": 0, "z": 0 } },
+        { "id": "north-wall", "type": "wall", "zone": "N", "transform": { "x": 0, "y": 0, "z": -30 } },
+        { "id": "area-light-1", "type": "light", "zone": "C", "transform": { "x": 0, "y": 8, "z": 0 }, "lightProps": { "type": "point", "intensity": 1.5, "color": "#fff5e0", "distance": 30 } }
+      ],
+      "pathways": [ { "from": "gate", "to": "main-tower", "width": 3 } ]
     }
   },
   "explain": {
@@ -158,7 +199,7 @@ RETURN FORMAT (strict JSON only, no markdown):
   }
 }
 
-Focus on SPATIAL ORGANIZATION and STRUCTURAL DETAIL. Every zone should have content.
+Focus on SPATIAL ORGANIZATION. The engine handles visual quality.
 Output ONLY the JSON. No commentary.`;
 }
 
@@ -202,7 +243,7 @@ RULES:
 - Keep lights within budget (max 8)
 - New children use RELATIVE transforms (not world coordinates)
 
-${BLUEPRINT_STRUCTURE_REF}
+${STRUCTURE_FORMAT}
 ${SCALE_REFERENCE}
 
 Output ONLY the JSON. No markdown. No commentary.`;

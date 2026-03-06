@@ -42,35 +42,58 @@ const SCENE_OVERRIDE_PATTERNS = [
 ];
 
 // ── Archetype detection for intent classification ──
+// Universal archetypes: vehicle, furniture, structure, tower, tool, weapon,
+// creature, machine, container, nature, lighting, prop
 const ARCHETYPE_MAP: Array<{ pattern: RegExp; archetype: string }> = [
+  // Vehicle
   { pattern: /\b(car|truck|van|bus|sedan|suv|taxi|ambulance|firetruck)\b/i, archetype: "vehicle" },
-  { pattern: /\b(motorcycle|bike|bicycle|scooter)\b/i, archetype: "vehicle" },
-  { pattern: /\b(boat|ship|canoe|kayak|yacht|submarine)\b/i, archetype: "vehicle" },
-  { pattern: /\b(airplane|helicopter|jet|drone|spaceship|rocket)\b/i, archetype: "vehicle" },
-  { pattern: /\b(tank|apc|humvee)\b/i, archetype: "vehicle" },
-  { pattern: /\b(train|locomotive|trolley)\b/i, archetype: "vehicle" },
-  { pattern: /\b(couch|sofa|chair|bench|throne|stool)\b/i, archetype: "furniture" },
-  { pattern: /\b(table|desk|counter|workbench)\b/i, archetype: "furniture" },
-  { pattern: /\b(bed|crib|hammock|bunk)\b/i, archetype: "furniture" },
-  { pattern: /\b(wardrobe|cabinet|shelf|bookcase|dresser|drawer)\b/i, archetype: "furniture" },
-  { pattern: /\b(lamp|chandelier|lantern|torch|candle|sconce)\b/i, archetype: "lighting" },
-  { pattern: /\b(tower|lighthouse|windmill|silo|chimney)\b/i, archetype: "tower" },
-  { pattern: /\b(house|cabin|hut|shed|cottage|shack|barn)\b/i, archetype: "building" },
-  { pattern: /\b(building|skyscraper|office|apartment|warehouse|factory|store|shop)\b/i, archetype: "building" },
-  { pattern: /\b(bridge|overpass|walkway|ramp)\b/i, archetype: "building" },
-  { pattern: /\b(gate|door|portcullis|drawbridge)\b/i, archetype: "prop" },
-  { pattern: /\b(fence|wall|barricade|barrier|railing)\b/i, archetype: "prop" },
-  { pattern: /\b(sword|shield|axe|bow|spear|mace|dagger|staff|wand)\b/i, archetype: "prop" },
-  { pattern: /\b(barrel|crate|box|chest|urn|pot|vase|jar)\b/i, archetype: "prop" },
-  { pattern: /\b(statue|fountain|monument|obelisk|pillar|column|arch)\b/i, archetype: "prop" },
-  { pattern: /\b(sign|banner|flag|billboard)\b/i, archetype: "prop" },
-  { pattern: /\b(tree|palm|pine|oak|willow|birch)\b/i, archetype: "nature" },
-  { pattern: /\b(rock|boulder|stone|pebble)\b/i, archetype: "nature" },
-  { pattern: /\b(bush|shrub|hedge|flower|mushroom|cactus|grass)\b/i, archetype: "nature" },
-  { pattern: /\b(robot|android|mech|golem)\b/i, archetype: "character" },
-  { pattern: /\b(character|person|figure|npc|human|man|woman|soldier|guard|knight)\b/i, archetype: "character" },
-  { pattern: /\b(creature|monster|dragon|demon|beast|spider|wolf|bear)\b/i, archetype: "character" },
-  { pattern: /\b(horse|dog|cat|bird|fish|fox|deer|rabbit)\b/i, archetype: "character" },
+  { pattern: /\b(motorcycle|bike|bicycle|scooter|skateboard|segway)\b/i, archetype: "vehicle" },
+  { pattern: /\b(boat|ship|canoe|kayak|yacht|submarine|raft|gondola)\b/i, archetype: "vehicle" },
+  { pattern: /\b(airplane|helicopter|jet|drone|spaceship|rocket|glider|blimp)\b/i, archetype: "vehicle" },
+  { pattern: /\b(tank|apc|humvee|cart|wagon|chariot|sled|sleigh)\b/i, archetype: "vehicle" },
+  { pattern: /\b(train|locomotive|trolley|tram|monorail)\b/i, archetype: "vehicle" },
+  // Furniture
+  { pattern: /\b(couch|sofa|chair|bench|throne|stool|recliner|loveseat)\b/i, archetype: "furniture" },
+  { pattern: /\b(table|desk|counter|workbench|nightstand|end\s*table)\b/i, archetype: "furniture" },
+  { pattern: /\b(bed|crib|hammock|bunk|mattress|futon)\b/i, archetype: "furniture" },
+  { pattern: /\b(wardrobe|cabinet|shelf|bookcase|dresser|drawer|cupboard|locker)\b/i, archetype: "furniture" },
+  // Tool
+  { pattern: /\b(hammer|wrench|screwdriver|pliers|saw|drill|pickaxe|shovel|rake|hoe)\b/i, archetype: "tool" },
+  { pattern: /\b(key|compass|telescope|microscope|magnifying\s*glass|hourglass)\b/i, archetype: "tool" },
+  { pattern: /\b(fishing\s*rod|paintbrush|pen|pencil|broom|mop|bucket)\b/i, archetype: "tool" },
+  // Weapon
+  { pattern: /\b(sword|shield|axe|bow|spear|mace|dagger|staff|wand|halberd|trident)\b/i, archetype: "weapon" },
+  { pattern: /\b(gun|rifle|pistol|shotgun|cannon|crossbow|slingshot|catapult|ballista)\b/i, archetype: "weapon" },
+  // Machine
+  { pattern: /\b(robot|android|mech|golem|automaton)\b/i, archetype: "machine" },
+  { pattern: /\b(engine|motor|generator|turbine|pump|compressor|crane|forklift)\b/i, archetype: "machine" },
+  { pattern: /\b(computer|terminal|console|arcade|vending\s*machine|jukebox|radio|tv|television)\b/i, archetype: "machine" },
+  { pattern: /\b(clock|gear|windmill|waterwheel|mill|press|loom|anvil|furnace|oven)\b/i, archetype: "machine" },
+  // Container
+  { pattern: /\b(barrel|crate|box|chest|urn|pot|vase|jar|basket|sack|bag|trunk|coffin|casket)\b/i, archetype: "container" },
+  { pattern: /\b(bottle|flask|goblet|cup|mug|bowl|cauldron|kettle|bucket)\b/i, archetype: "container" },
+  // Creature
+  { pattern: /\b(character|person|figure|npc|human|man|woman|soldier|guard|knight|wizard|warrior)\b/i, archetype: "creature" },
+  { pattern: /\b(creature|monster|dragon|demon|beast|spider|wolf|bear|troll|ogre|goblin)\b/i, archetype: "creature" },
+  { pattern: /\b(horse|dog|cat|bird|fish|fox|deer|rabbit|snake|frog|turtle|owl|eagle)\b/i, archetype: "creature" },
+  // Lighting
+  { pattern: /\b(lamp|chandelier|lantern|torch|candle|sconce|streetlight|spotlight|beacon)\b/i, archetype: "lighting" },
+  // Tower
+  { pattern: /\b(tower|lighthouse|windmill|silo|chimney|minaret|obelisk|spire|pillar|column)\b/i, archetype: "tower" },
+  // Structure (buildings, architecture)
+  { pattern: /\b(house|cabin|hut|shed|cottage|shack|barn|gazebo|pavilion)\b/i, archetype: "structure" },
+  { pattern: /\b(building|skyscraper|office|apartment|warehouse|factory|store|shop)\b/i, archetype: "structure" },
+  { pattern: /\b(bridge|overpass|walkway|ramp|aqueduct|pier|dock)\b/i, archetype: "structure" },
+  { pattern: /\b(gate|door|portcullis|drawbridge|archway)\b/i, archetype: "structure" },
+  { pattern: /\b(fence|wall|barricade|barrier|railing|palisade)\b/i, archetype: "structure" },
+  // Nature
+  { pattern: /\b(tree|palm|pine|oak|willow|birch|maple|cedar)\b/i, archetype: "nature" },
+  { pattern: /\b(rock|boulder|stone|pebble|crystal|gem|stalagmite)\b/i, archetype: "nature" },
+  { pattern: /\b(bush|shrub|hedge|flower|mushroom|cactus|grass|vine|fern)\b/i, archetype: "nature" },
+  // Prop (catch-all for decorative/misc items)
+  { pattern: /\b(statue|fountain|monument|altar|pedestal|trophy|globe)\b/i, archetype: "prop" },
+  { pattern: /\b(sign|banner|flag|billboard|poster|scroll|book|map)\b/i, archetype: "prop" },
+  { pattern: /\b(bell|horn|drum|piano|guitar|instrument)\b/i, archetype: "prop" },
 ];
 
 /**
@@ -132,7 +155,7 @@ export function classifyRequest(prompt: string): ClassificationResult {
     intentType = "environment";
   }
   if (intentType === "unknown" && generationMode === "OBJECT") {
-    intentType = "custom";
+    intentType = "prop";
   }
 
   return { generationMode, intentType, needsEnvironmentCatalog };
