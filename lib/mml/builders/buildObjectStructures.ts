@@ -39,7 +39,14 @@ export function buildObjectStructures(blueprint: BlueprintJSON): BlueprintJSON {
     if (s.type === "light" || s.lightProps) return s;
 
     // Dispatch to archetype-specific builder
-    return dispatchBuilder(s, parts, archetype, theme);
+    const built = dispatchBuilder(s, parts, archetype, theme);
+
+    // Clear label if builder added children/geometry/model — prevents
+    // the serializer from rendering an m-label instead of the geometry.
+    if (built.label && (built.children?.length || built.geometry || built.modelSrc)) {
+      return { ...built, label: undefined };
+    }
+    return built;
   });
 
   // Enforce grounding

@@ -45,8 +45,8 @@ export function renderStructure(
     return;
   }
 
-  // Label
-  if (s.label && !s.geometry) {
+  // Label — only if the structure is PURELY a label (no children, no geometry, no model)
+  if (s.label && !s.geometry && !s.children?.length && !s.modelSrc) {
     const t = s.transform;
     const attrs = [
       `id="${esc(s.id)}"`,

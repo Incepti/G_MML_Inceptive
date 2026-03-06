@@ -102,37 +102,44 @@ function enhanceSceneStructure(
     };
   }
 
-  // Already has geometry, model, or label — leave it
-  if (s.geometry || s.modelSrc || s.label) return s;
+  // Already has geometry or model — leave it
+  if (s.geometry || s.modelSrc) return s;
 
   // Bare structure — dispatch to the appropriate archetype builder
   const builderType = TYPE_TO_BUILDER[s.type];
+  let built: BlueprintStructure;
 
   switch (builderType) {
     case "vehicle":
-      return buildVehicleStructure(s, undefined, theme);
+      built = buildVehicleStructure(s, undefined, theme); break;
     case "furniture":
-      return buildFurnitureStructure(s, undefined, theme);
+      built = buildFurnitureStructure(s, undefined, theme); break;
     case "structure":
     case "tower":
-      return buildStructureStructure(s, undefined, theme);
+      built = buildStructureStructure(s, undefined, theme); break;
     case "creature":
-      return buildCreatureStructure(s, undefined, theme);
+      built = buildCreatureStructure(s, undefined, theme); break;
     case "machine":
-      return buildMachineStructure(s, undefined, theme);
+      built = buildMachineStructure(s, undefined, theme); break;
     case "container":
-      return buildContainerStructure(s, undefined, theme);
+      built = buildContainerStructure(s, undefined, theme); break;
     case "nature":
-      return buildNatureStructure(s, undefined, theme);
+      built = buildNatureStructure(s, undefined, theme); break;
     case "weapon":
-      return buildWeaponStructure(s, undefined, theme);
+      built = buildWeaponStructure(s, undefined, theme); break;
     case "tool":
-      return buildToolStructure(s, undefined, theme);
+      built = buildToolStructure(s, undefined, theme); break;
     case "lighting":
-      return buildLightingStructure(s, undefined, theme);
+      built = buildLightingStructure(s, undefined, theme); break;
     default:
-      return buildPropStructure(s, undefined, undefined, theme);
+      built = buildPropStructure(s, undefined, undefined, theme); break;
   }
+
+  // Clear label if builder added children/geometry/model
+  if (built.label && (built.children?.length || built.geometry || built.modelSrc)) {
+    return { ...built, label: undefined };
+  }
+  return built;
 }
 
 // ─── Lighting fallback ───────────────────────────────────────────────────────

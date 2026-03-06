@@ -72,7 +72,7 @@ STRUCTURE FORMAT (for scene.structures):
   "zone": "NW|N|NE|W|C|E|SW|S|SE",
   "transform": { "x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"sx":1,"sy":1,"sz":1 },
   "lightProps": { "type":"point|directional|spot", "intensity":1, "color":"#ffffff", "distance":20 },
-  "label": "optional text"
+  "label": "optional — ONLY for actual text labels rendered via m-label (signs, nameplates). Do NOT set label on objects like chairs, trees, etc."
 }
 NOTE: Do NOT include geometry, material, or children on structures. The procedural engine generates those from the parts array.
 `;
