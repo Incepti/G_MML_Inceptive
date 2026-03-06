@@ -7,38 +7,40 @@
  *
  * Pipeline position: Blueprint → [Asset Resolver] → Builder → Serializer → MML
  *
+ * STRICT MATCHING: Only resolves when a keyword matches an asset tag exactly.
+ * If no exact match is found, returns null — the procedural builder handles it.
+ * Never returns placeholder or fallback models.
+ *
  * Deterministic — same inputs → same outputs. No network calls.
  */
 
 import type { BlueprintJSON, BlueprintStructure } from "@/types/blueprint";
 import {
-  searchEnvironmentAssets,
+  ENVIRONMENT_CATALOG,
   type EnvironmentAsset,
 } from "@/lib/assets/environment-catalog";
 import {
-  searchTrustedAssets,
+  TRUSTED_ASSETS,
 } from "@/lib/assets/trusted-index";
 
-// ─── Keyword mapping: archetype + structure type → search terms ─────────────
+// ─── Keyword mapping: structure type → exact tags to match ──────────────────
+// Only maps types that have known matching assets. Keeps matches tight.
 
-const ARCHETYPE_SEARCH_TERMS: Record<string, string[]> = {
-  vehicle: ["vehicle", "truck", "car"],
-  creature: ["character", "animal"],
-  nature: ["tree", "plant"],
-  lighting: ["lantern", "light", "lamp"],
-  container: ["bottle", "container", "barrel"],
-  machine: ["robot", "machine"],
-};
-
-const TYPE_SEARCH_TERMS: Record<string, string[]> = {
-  lamp: ["lantern", "light"],
-  tree: ["tree", "plant"],
-  rock: ["rock", "stone"],
-  barrel: ["barrel", "container"],
-  crate: ["crate", "box"],
-  vehicle: ["vehicle", "truck", "car"],
-  sign: ["sign"],
-  bench: ["bench"],
+const TYPE_SEARCH_TAGS: Record<string, string[]> = {
+  lamp: ["lantern"],
+  lantern: ["lantern"],
+  tree: ["tree"],
+  rock: ["rock"],
+  barrel: ["barrel"],
+  crate: ["crate"],
+  truck: ["truck"],
+  rocket: ["rocket"],
+  horse: ["horse"],
+  fox: ["fox"],
+  fish: ["fish"],
+  robot: ["robot"],
+  duck: ["duck"],
+  astronaut: ["astronaut"],
 };
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -57,37 +59,51 @@ const TYPE_SEARCH_TERMS: Record<string, string[]> = {
  * as `<m-model>` and skip procedural building entirely.
  */
 export function resolveAssets(blueprint: BlueprintJSON): BlueprintJSON {
-  const archetype = blueprint.intent?.archetype || "";
-
   const structures = blueprint.scene.structures.map((s) =>
-    resolveStructureAsset(s, archetype)
+    resolveStructureAsset(s)
   );
 
   return { ...blueprint, scene: { ...blueprint.scene, structures } };
 }
 
+// Tags that are too generic to produce reliable matches.
+// These exist on many assets and cause false positives (e.g. "character" → Astronaut).
+const BLOCKED_SEARCH_TAGS = new Set([
+  "character", "animal", "animated", "prop", "basic", "pbr",
+  "environment", "nature", "sci-fi", "medieval", "urban",
+]);
+
 /**
  * Attempt to resolve a single structure to a model asset.
- * Searches environment catalog and trusted index by type, id, and archetype.
+ * Uses STRICT exact-tag matching against environment catalog and trusted index.
+ *
+ * Returns null if no exact match is found. Never returns placeholder models.
  */
 export function resolveAsset(
-  archetype: string,
+  _archetype: string,
   keywords: string[],
 ): EnvironmentAsset | null {
-  // Search environment catalog (verified assets with semantic tags)
-  for (const keyword of keywords) {
-    const results = searchEnvironmentAssets(keyword);
-    if (results && results.length > 0) {
-      return results[0];
-    }
+  // Filter out blocked generic tags
+  const filtered = keywords
+    .map((k) => k.toLowerCase())
+    .filter((k) => !BLOCKED_SEARCH_TAGS.has(k));
+
+  if (filtered.length === 0) return null;
+
+  // Search environment catalog — exact tag or id match only
+  for (const kw of filtered) {
+    const match = ENVIRONMENT_CATALOG.find((a) =>
+      a.tags.some((t) => t === kw) || a.id === kw
+    );
+    if (match) return match;
   }
 
-  // Search trusted index (broader asset library)
-  for (const keyword of keywords) {
-    const { assets } = searchTrustedAssets(keyword, 1, 1);
-    if (assets.length > 0) {
-      // Convert TrustedAsset to EnvironmentAsset format
-      const ta = assets[0];
+  // Search trusted index — exact tag or id match only
+  for (const kw of filtered) {
+    const ta = TRUSTED_ASSETS.find((a) =>
+      a.tags.some((t) => t === kw) || a.id === kw
+    );
+    if (ta) {
       return {
         id: ta.id,
         name: ta.name,
@@ -107,7 +123,6 @@ export function resolveAsset(
 
 function resolveStructureAsset(
   s: BlueprintStructure,
-  archetype: string,
 ): BlueprintStructure {
   // Skip if already has model, geometry, children, light, or label
   if (s.modelSrc || s.geometry || s.children?.length || s.lightProps || s.label) {
@@ -115,22 +130,21 @@ function resolveStructureAsset(
   }
   if (s.type === "light") return s;
 
-  // Build search keywords from structure type, id, and archetype
+  // Build search keywords — only exact, tight matches
   const keywords: string[] = [];
 
-  // Add type-specific terms
-  if (TYPE_SEARCH_TERMS[s.type]) {
-    keywords.push(...TYPE_SEARCH_TERMS[s.type]);
+  // Add type-specific tags (known mappings only)
+  if (TYPE_SEARCH_TAGS[s.type]) {
+    keywords.push(...TYPE_SEARCH_TAGS[s.type]);
   }
+
+  // Add the structure's own type and id as potential exact-match terms
   keywords.push(s.type);
-  keywords.push(s.id);
-
-  // Add archetype-specific terms
-  if (ARCHETYPE_SEARCH_TERMS[archetype]) {
-    keywords.push(...ARCHETYPE_SEARCH_TERMS[archetype]);
+  if (s.id !== s.type) {
+    keywords.push(s.id);
   }
 
-  const asset = resolveAsset(archetype, keywords);
+  const asset = resolveAsset("", keywords);
   if (asset) {
     const scale = asset.defaultScale;
     return {
