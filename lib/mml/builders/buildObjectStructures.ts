@@ -34,12 +34,17 @@ export function buildObjectStructures(blueprint: BlueprintJSON): BlueprintJSON {
   const theme = blueprint.style?.theme || "neutral";
   const parts = blueprint.parts;
 
+  // Identify primary structure — it uses the blueprint archetype.
+  // Secondary structures use their own type for builder dispatch.
+  const primaryId = findPrimaryStructureId(blueprint.scene.structures);
+
   let structures = blueprint.scene.structures.map((s) => {
     // Skip lights — they don't need geometry
     if (s.type === "light" || s.lightProps) return s;
 
+    const isPrimary = s.id === primaryId;
     // Dispatch to archetype-specific builder
-    const built = dispatchBuilder(s, parts, archetype, theme);
+    const built = dispatchBuilder(s, parts, archetype, theme, isPrimary);
 
     // Clear label if builder added children/geometry/model — prevents
     // the serializer from rendering an m-label instead of the geometry.
@@ -58,6 +63,44 @@ export function buildObjectStructures(blueprint: BlueprintJSON): BlueprintJSON {
   return result;
 }
 
+// ─── Primary structure detection ────────────────────────────────────────────
+
+function findPrimaryStructureId(structures: BlueprintStructure[]): string | null {
+  const mainById = structures.find((s) =>
+    /main|primary/i.test(s.id) && s.type !== "light"
+  );
+  if (mainById) return mainById.id;
+
+  const first = structures.find((s) => s.type !== "light" && !s.lightProps);
+  return first?.id ?? null;
+}
+
+// ─── Type-to-builder mapping (for secondary structures) ──────────────────────
+
+/**
+ * Maps specific structure types to their builder archetype.
+ * Used for secondary structures so they get the correct builder
+ * instead of inheriting the blueprint-level archetype.
+ * e.g. a "tree" in a furniture blueprint should use nature builder, not furniture.
+ */
+const TYPE_TO_BUILDER: Record<string, string> = {
+  vehicle: "vehicle",
+  tower: "tower", clockTower: "tower",
+  building: "structure", room: "structure", gate: "structure",
+  arch: "structure", stair: "structure", bridge: "structure",
+  wall: "structure", fence: "structure", door: "structure",
+  window: "structure", pillar: "structure",
+  bench: "furniture", table: "furniture", chair: "furniture",
+  furniture: "furniture",
+  creature: "creature",
+  machine: "machine",
+  barrel: "container", crate: "container", container: "container",
+  tree: "nature", rock: "nature", water: "nature", nature: "nature",
+  lamp: "lighting",
+  weapon: "weapon",
+  tool: "tool",
+};
+
 // ─── Archetype dispatcher ────────────────────────────────────────────────────
 
 function dispatchBuilder(
@@ -65,13 +108,20 @@ function dispatchBuilder(
   parts: BlueprintPart[] | undefined,
   archetype: string,
   theme: string,
+  isPrimary: boolean,
 ): BlueprintStructure {
   // Already fully built — leave it
   if (structure.children?.length || structure.geometry || structure.modelSrc) {
     return structure;
   }
 
-  switch (archetype) {
+  // For secondary structures, use their own type to pick the builder.
+  // This prevents a "tree" in a furniture blueprint from getting chair primitives.
+  const effectiveArchetype = isPrimary
+    ? archetype
+    : (TYPE_TO_BUILDER[structure.type] || archetype);
+
+  switch (effectiveArchetype) {
     case "vehicle":
       return buildVehicleStructure(structure, parts, theme);
     case "furniture":
@@ -94,7 +144,7 @@ function dispatchBuilder(
     case "lighting":
       return buildLightingStructure(structure, parts, theme);
     default:
-      return buildPropStructure(structure, parts, archetype, theme);
+      return buildPropStructure(structure, parts, effectiveArchetype, theme);
   }
 }
 

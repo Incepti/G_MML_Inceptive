@@ -157,8 +157,17 @@ export function resolveAssets(blueprint: BlueprintJSON): BlueprintJSON {
   const intentName = blueprint.intent?.name?.toLowerCase() || "";
   const archetype = blueprint.intent?.archetype?.toLowerCase() || "";
 
+  // Identify the primary structure — intent keywords only apply to it.
+  // For multi-object prompts ("chair + tree"), injecting "chair" into tree's
+  // keywords causes cross-contamination.
+  const primaryId = findPrimaryStructureId(blueprint.scene.structures);
+
   const structures = blueprint.scene.structures.map((s) =>
-    resolveStructureAsset(s, intentName, archetype)
+    resolveStructureAsset(
+      s,
+      s.id === primaryId ? intentName : "",
+      s.id === primaryId ? archetype : "",
+    )
   );
 
   return { ...blueprint, scene: { ...blueprint.scene, structures } };
@@ -214,6 +223,26 @@ export function resolveAsset(
   }
 
   return null;
+}
+
+// ─── Primary structure detection ─────────────────────────────────────────────
+
+/**
+ * Identify the "primary" structure in a blueprint — the one that matches
+ * the user's intent. Intent keywords (from blueprint.intent.name) should
+ * only be injected for this structure to avoid cross-contamination in
+ * multi-object prompts (e.g. "chair + tree").
+ */
+function findPrimaryStructureId(structures: BlueprintStructure[]): string | null {
+  // Explicit "main" or "primary" id
+  const mainById = structures.find((s) =>
+    /main|primary/i.test(s.id) && s.type !== "light"
+  );
+  if (mainById) return mainById.id;
+
+  // First non-light structure (common for single-object prompts)
+  const first = structures.find((s) => s.type !== "light" && !s.lightProps);
+  return first?.id ?? null;
 }
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
