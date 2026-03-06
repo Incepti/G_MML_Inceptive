@@ -93,6 +93,27 @@ CREATE TABLE IF NOT EXISTS fetch_cache (
 );
 `;
 
+export const CREATE_MODEL_LIBRARY_TABLE = `
+CREATE TABLE IF NOT EXISTS model_library (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  tags TEXT NOT NULL DEFAULT '[]',
+  category TEXT NOT NULL DEFAULT 'prop',
+  model_url TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'generated',
+  provider TEXT,
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  usage_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+`;
+
+export const CREATE_MODEL_LIBRARY_INDEXES = `
+CREATE INDEX IF NOT EXISTS idx_model_library_name ON model_library(name);
+CREATE INDEX IF NOT EXISTS idx_model_library_category ON model_library(category);
+`;
+
 const ALL_TABLES = [
   CREATE_PROJECTS_TABLE,
   CREATE_PROJECT_FILES_TABLE,
@@ -101,12 +122,17 @@ const ALL_TABLES = [
   CREATE_UPLOADS_TABLE,
   CREATE_ASSET_REGISTRY_TABLE,
   CREATE_FETCH_CACHE_TABLE,
+  CREATE_MODEL_LIBRARY_TABLE,
 ];
 
 export async function runMigrations() {
   const sql = neon(process.env.DATABASE_URL!);
   for (const ddl of ALL_TABLES) {
     await sql.query(ddl);
+  }
+  // Run index creation separately (multi-statement)
+  for (const stmt of CREATE_MODEL_LIBRARY_INDEXES.split(";").filter((s) => s.trim())) {
+    await sql.query(stmt);
   }
   console.log("Migrations complete.");
 }

@@ -283,6 +283,100 @@ export async function searchRegistryAssets({
   return { assets, total };
 }
 
+// ─── Model Library ───────────────────────────────────────────────────────
+
+export async function insertModelLibraryEntry(entry: {
+  id: string;
+  name: string;
+  tags: string;    // JSON array string
+  category: string;
+  model_url: string;
+  source: string;
+  provider: string | null;
+  size_bytes: number;
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+}) {
+  const sql = getSQL();
+  await sql`
+    INSERT INTO model_library (
+      id, name, tags, category, model_url, source, provider,
+      size_bytes, usage_count, created_at, updated_at
+    )
+    VALUES (
+      ${entry.id}, ${entry.name}, ${entry.tags}, ${entry.category},
+      ${entry.model_url}, ${entry.source}, ${entry.provider},
+      ${entry.size_bytes}, ${entry.usage_count}, ${entry.created_at}, ${entry.updated_at}
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      usage_count = EXCLUDED.usage_count,
+      updated_at = EXCLUDED.updated_at
+  `;
+}
+
+export async function searchModelLibrary({
+  name,
+  category,
+  tags,
+}: {
+  name?: string;
+  category?: string;
+  tags?: string[];
+}): Promise<Record<string, unknown>[]> {
+  const sql = getSQL();
+
+  if (name && category) {
+    return sql`
+      SELECT * FROM model_library
+      WHERE (name = ${name} OR category = ${category})
+      ORDER BY usage_count ASC, created_at DESC
+    `;
+  }
+  if (name) {
+    return sql`
+      SELECT * FROM model_library
+      WHERE name = ${name}
+      ORDER BY usage_count ASC, created_at DESC
+    `;
+  }
+  if (category) {
+    return sql`
+      SELECT * FROM model_library
+      WHERE category = ${category}
+      ORDER BY usage_count ASC, created_at DESC
+    `;
+  }
+  return sql`
+    SELECT * FROM model_library
+    ORDER BY usage_count ASC, created_at DESC
+    LIMIT 50
+  `;
+}
+
+export async function getModelCountByName(name: string): Promise<number> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT COUNT(*) as count FROM model_library WHERE name = ${name}
+  `;
+  return Number(rows[0].count);
+}
+
+export async function incrementModelUsage(id: string) {
+  const sql = getSQL();
+  await sql`
+    UPDATE model_library
+    SET usage_count = usage_count + 1, updated_at = ${new Date().toISOString()}
+    WHERE id = ${id}
+  `;
+}
+
+export async function getModelLibraryEntry(id: string) {
+  const sql = getSQL();
+  const rows = await sql`SELECT * FROM model_library WHERE id = ${id}`;
+  return rows[0] ?? null;
+}
+
 // ─── Fetch Cache (used by sandbox runtime) ────────────────────────────────
 
 export async function getCachedFetch(url: string) {

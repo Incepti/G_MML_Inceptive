@@ -73,6 +73,8 @@ const BaseStructureSchema = z.object({
     angle: z.number().optional(),
   }).optional(),
   modelSrc: z.string().optional(),
+  modelCategory: z.string().optional(),
+  modelTags: z.array(z.string()).optional(),
   label: z.string().optional(),
 });
 

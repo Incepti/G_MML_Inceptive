@@ -54,6 +54,25 @@ export interface AssetSearchResult {
   pageSize: number;
 }
 
+// ─── Model Library (persistent generated/cached models) ─────────────────────
+
+export type ModelLibrarySource = "generated" | "uploaded" | "catalog";
+export type ModelProvider = "meshy" | "triposr" | "stability" | "manual";
+
+export interface ModelLibraryEntry {
+  id: string;
+  name: string;
+  tags: string[];
+  category: string;
+  modelUrl: string;
+  source: ModelLibrarySource;
+  provider: ModelProvider | null;
+  sizeBytes: number;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface UploadResult {
   success: boolean;
   asset?: AssetManifestEntry;
