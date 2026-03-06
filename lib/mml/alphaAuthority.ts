@@ -89,8 +89,12 @@ temple (small/medium):
 
 For unlisted environments: identify 5-8 subsystems, assign each to a zone, ensure all present.
 
-COMPOSITION LAW — NO SINGLE-PRIMITIVE OBJECTS:
-Every object MUST use multiple primitives. Zero single-cube objects allowed.
+UNIVERSAL OBJECT CONSTRUCTION MODEL:
+Every object MUST use a 3-LAYER hierarchy. Zero single-primitive objects allowed.
+  LAYER 1 — STRUCTURE: main shape (base, frame, body) — 1-2 primitives
+  LAYER 2 — FUNCTIONAL PARTS: what makes it work (seats, doors, surfaces) — 2-4 primitives
+  LAYER 3 — DETAILS: visual richness (legs, bars, panels, rims) — 2-4 primitives
+  Result: minimum 5-8 children per object.
 
 STRUCTURES (5+ children each):
 • building/house → 4 walls + roof + door + windows(2+)

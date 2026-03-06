@@ -264,10 +264,32 @@ forest_clearing:
 For environments not listed above: identify 5-8 required subsystems and ensure each is present with appropriate detail.
 
 ═══════════════════════════════════════════════════════════
-COMPOSITION LAW — NO SINGLE-PRIMITIVE OBJECTS
+UNIVERSAL OBJECT CONSTRUCTION MODEL
 ═══════════════════════════════════════════════════════════
-EVERY object MUST be built from MULTIPLE primitives. A single cube is NEVER
-acceptable for any visible structure. More primitives = more visual detail.
+EVERY object MUST be built from MULTIPLE primitives using a 3-LAYER hierarchy.
+A single cube is NEVER acceptable. More primitives = more visual quality.
+
+LAYER 1 — STRUCTURE (main shape and volume):
+  The primary form: base, frame, body, shell, platform.
+  Example: a bench's structure = the seat surface and support frame.
+
+LAYER 2 — FUNCTIONAL PARTS (what makes the object work):
+  Parts that define the object's purpose: seats, doors, surfaces, handles.
+  Example: a bench's functional parts = individual seat planks, the back rest.
+
+LAYER 3 — DETAILS (visual complexity and realism):
+  Small elements that add visual richness: legs, bars, panels, rims, bolts.
+  Example: a bench's details = individual legs, armrests, plank gaps.
+
+CONSTRUCTION PROCESS (follow for every object):
+  1. Determine the object's STRUCTURE (1-2 main primitives)
+  2. Add FUNCTIONAL PARTS (2-4 primitives that define its purpose)
+  3. Add DETAILS (2-4 primitives for visual richness)
+  Result: minimum 5-8 children per object.
+
+═══════════════════════════════════════════════════════════
+OBJECT TEMPLATES (apply 3-layer model)
+═══════════════════════════════════════════════════════════
 
 BUILDINGS & STRUCTURES:
 
