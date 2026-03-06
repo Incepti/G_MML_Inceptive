@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { validateBlueprint } from "@/lib/blueprint/schema";
-import { generateMml } from "@/lib/blueprint/generateMml";
+import { generateMml, generateMmlAsync } from "@/lib/blueprint/generateMml";
 import { validateAndFixMml } from "@/lib/mml/alphaValidator";
 import { validateLayout } from "@/lib/layout/validator";
 import { classifyRequest } from "@/lib/classifier";
@@ -203,8 +203,8 @@ export async function POST(req: NextRequest) {
         console.log(`[/api/ai] Layout issues: ${layoutResult.issues.map((i) => i.message).join(", ")}`);
       }
 
-      // Generate MML from enhanced blueprint
-      const mml = generateMml(blueprint);
+      // Generate MML from enhanced blueprint (model-first async pipeline)
+      const mml = await generateMmlAsync(blueprint);
       const { fixedMml, issues } = validateAndFixMml(mml);
       const allIssues = [...issues, ...layoutResult.issues];
 
@@ -223,10 +223,16 @@ export async function POST(req: NextRequest) {
     if (aiResponse.type === "PATCH") {
       const pr = aiResponse as AiPatchResponse;
 
-      if (!Array.isArray(pr.patch)) {
-        console.error("[/api/ai] PATCH response has non-array patch:", JSON.stringify(pr.patch));
+      if (!Array.isArray(pr.patch) || pr.patch.length === 0) {
+        console.error("[/api/ai] PATCH response has empty/invalid patch:", JSON.stringify(pr.patch));
         return NextResponse.json(
-          { type: "ERROR", error: "LLM returned PATCH with invalid patch field (not an array)", details: JSON.stringify(pr.patch).slice(0, 500) },
+          {
+            type: "ERROR",
+            error: pr.patch?.length === 0
+              ? "LLM returned PATCH with no operations — try rephrasing your request"
+              : "LLM returned PATCH with invalid patch field (not an array)",
+            details: JSON.stringify(pr.patch).slice(0, 500),
+          },
           { status: 200 }
         );
       }

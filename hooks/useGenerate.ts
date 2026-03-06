@@ -212,6 +212,16 @@ export function useGenerate() {
         // 6. Handle PATCH
         if (data.type === "PATCH") {
           const patch = data.patch as PatchOperation[];
+
+          if (!Array.isArray(patch) || patch.length === 0) {
+            store.updateChatMessage(projectId, aiMessageId, {
+              content: "The AI returned no changes. Try rephrasing your request or be more specific.",
+              reasoning: [{ title: "Empty Patch", content: "The AI returned a PATCH response with no operations.", status: "error" }],
+            });
+            store.addLog({ type: "error", message: "[ERR] empty_patch: AI returned PATCH with 0 operations" });
+            return;
+          }
+
           if (!currentBlueprint) {
             store.updateChatMessage(projectId, aiMessageId, {
               content: "Error: Cannot apply patch — no existing blueprint. Try generating a new scene first.",
