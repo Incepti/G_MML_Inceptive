@@ -1,11 +1,37 @@
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 
 let _sql: NeonQueryFunction<false, false> | null = null;
+let _modelLibraryReady = false;
 
 function getSQL() {
   if (_sql) return _sql;
   _sql = neon(process.env.DATABASE_URL!);
   return _sql;
+}
+
+/**
+ * Ensure the model_library table exists before querying it.
+ * Runs once per process lifetime, idempotent via IF NOT EXISTS.
+ */
+async function ensureModelLibrary() {
+  if (_modelLibraryReady) return;
+  const sql = getSQL();
+  await sql`
+    CREATE TABLE IF NOT EXISTS model_library (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      tags TEXT NOT NULL DEFAULT '[]',
+      category TEXT NOT NULL DEFAULT 'prop',
+      model_url TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'generated',
+      provider TEXT,
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `;
+  _modelLibraryReady = true;
 }
 
 // ─── Project CRUD ─────────────────────────────────────────────────────────
@@ -298,6 +324,7 @@ export async function insertModelLibraryEntry(entry: {
   created_at: string;
   updated_at: string;
 }) {
+  await ensureModelLibrary();
   const sql = getSQL();
   await sql`
     INSERT INTO model_library (
@@ -324,6 +351,7 @@ export async function searchModelLibrary({
   category?: string;
   tags?: string[];
 }): Promise<Record<string, unknown>[]> {
+  await ensureModelLibrary();
   const sql = getSQL();
 
   if (name && category) {
@@ -355,6 +383,7 @@ export async function searchModelLibrary({
 }
 
 export async function getModelCountByName(name: string): Promise<number> {
+  await ensureModelLibrary();
   const sql = getSQL();
   const rows = await sql`
     SELECT COUNT(*) as count FROM model_library WHERE name = ${name}
@@ -363,6 +392,7 @@ export async function getModelCountByName(name: string): Promise<number> {
 }
 
 export async function incrementModelUsage(id: string) {
+  await ensureModelLibrary();
   const sql = getSQL();
   await sql`
     UPDATE model_library
@@ -372,6 +402,7 @@ export async function incrementModelUsage(id: string) {
 }
 
 export async function getModelLibraryEntry(id: string) {
+  await ensureModelLibrary();
   const sql = getSQL();
   const rows = await sql`SELECT * FROM model_library WHERE id = ${id}`;
   return rows[0] ?? null;
