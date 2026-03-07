@@ -52,7 +52,8 @@ export const StructureTypeEnum = z.enum([
   "arch", "stair", "bridge", "tree", "rock", "water", "lamp",
   "bench", "table", "chair", "sign", "barrel", "crate", "vehicle",
   "custom", "furniture", "machine", "container", "weapon", "tool",
-  "creature", "nature",
+  "creature", "nature", "character", "house", "spaceship", "animal",
+  "decoration", "food", "electronics", "structure",
 ]);
 
 export type StructureType = z.infer<typeof StructureTypeEnum>;
@@ -144,7 +145,7 @@ export const StyleSchema = z.object({
 export type Style = z.infer<typeof StyleSchema>;
 
 export const CompositionSchema = z.object({
-  focus: z.enum(["single", "layout"]).default("single"),
+  focus: z.enum(["single", "layout", "multiple"]).default("single"),
   symmetry: z.boolean().default(false),
 });
 
@@ -167,7 +168,7 @@ export type BlueprintPart = z.infer<typeof BlueprintPartSchema>;
 export const MetaSchema = z.object({
   title: z.string().default("Untitled Scene"),
   units: z.literal("meters").default("meters"),
-  scaleProfile: z.enum(["human", "miniature", "large"]).default("human"),
+  scaleProfile: z.enum(["human", "miniature", "large", "urban", "architectural"]).default("human"),
   sceneScale: SceneScaleEnum.default("medium"),
   seed: z.string().default("default-seed"),
 });
