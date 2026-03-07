@@ -76,7 +76,13 @@ describe("resolveAsset", () => {
 
   it("returns null for generic category terms", () => {
     expect(resolveAsset(["character"])).toBeNull();
-    expect(resolveAsset(["animal"])).toBeNull();
+    expect(resolveAsset(["vehicle"])).toBeNull();
+  });
+
+  it("resolves 'animal' to a character model (curated tag)", () => {
+    const animal = resolveAsset(["animal"]);
+    expect(animal).not.toBeNull();
+    expect(animal!.category).toBe("character");
   });
 
   it("falls back to category when no keyword match", () => {

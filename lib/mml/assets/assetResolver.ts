@@ -7,12 +7,13 @@
  * Pipeline position: Blueprint → [Asset Resolver] → Builder → Serializer → MML
  *
  * Source: gs://3dmodels_mml (667 GLB models, 11 categories)
+ * Keywords: scripts/Keywords_Models.md (curated per-model keywords)
  *
- * MATCHING PIPELINE:
- * 1. Exact tag match within category
- * 2. Exact tag match ignoring category
- * 3. Fuzzy partial match
- * 4. Category fallback (pick first model in the structure's category)
+ * MATCHING PIPELINE (scored):
+ * 1. Score every asset against keywords — exact ID match (100), exact tag (20),
+ *    ID-contains (10), tag-contains (5), fuzzy (3), plus category bonus (2).
+ * 2. Return highest-scoring asset above threshold.
+ * 3. If no match, fall back to first model in the structure's category.
  *
  * Deterministic — same inputs → same outputs. No network calls.
  */
@@ -27,19 +28,19 @@ import {
 
 /**
  * Category-level terms. Used ONLY for classification, never as search keywords.
- * Matching on these causes false positives (e.g. "vehicle" → RocketShip).
+ * Matching on these causes false positives (too broad).
  */
 const CATEGORY_TERMS = new Set([
   // asset categories
   "vehicle", "character", "furniture", "structure", "prop",
   "lighting", "environment",
   // semantic category aliases
-  "animal", "creature", "nature", "plant", "machine",
+  "creature", "nature", "machine",
   // style/mood tags (not object-specific)
-  "animated", "basic", "pbr", "sci-fi", "medieval", "urban",
-  "retro", "vintage", "modern", "fantasy", "realistic",
-  // spatial
-  "space", "forest", "aquatic", "indoor", "outdoor",
+  "animated", "basic", "pbr",
+  // folder names from GCS bucket
+  "animals", "art_decor", "buildings", "characters", "city_objects",
+  "electronics", "food", "props", "vehicles",
 ]);
 
 /**
@@ -58,18 +59,23 @@ export function classifyAssetCategory(
     car: "vehicle", truck: "vehicle", bus: "vehicle",
     motorcycle: "vehicle", bicycle: "vehicle", boat: "vehicle",
     ship: "vehicle", airplane: "vehicle", rocket: "vehicle",
-    train: "vehicle",
+    train: "vehicle", spaceship: "vehicle", suv: "vehicle",
 
     // characters / animals
     creature: "character", horse: "character", fox: "character",
     fish: "character", astronaut: "character", robot: "character",
-    duck: "character", dragon: "character",
+    duck: "character", dragon: "character", cow: "character",
+    deer: "character", wolf: "character", king: "character",
+    farmer: "character", adventurer: "character", worker: "character",
+    man: "character", woman: "character",
 
     // furniture
     bench: "furniture", table: "furniture", chair: "furniture",
     sofa: "furniture", couch: "furniture", stool: "furniture",
     ottoman: "furniture", refrigerator: "furniture", fridge: "furniture",
-    furniture: "furniture",
+    furniture: "furniture", bed: "furniture", desk: "furniture",
+    cabinet: "furniture", shelf: "furniture", nightstand: "furniture",
+    chandelier: "furniture", rug: "furniture",
 
     // structures
     tower: "structure", building: "structure", wall: "structure",
@@ -77,15 +83,18 @@ export function classifyAssetCategory(
     room: "structure", door: "structure", window: "structure",
     arch: "structure", stair: "structure", roof: "structure",
     pillar: "structure", clockTower: "structure",
-    floor: "structure",
+    floor: "structure", castle: "structure", house: "structure",
+    tent: "structure", hut: "structure",
 
     // lighting
-    lamp: "lighting", lantern: "lighting", light: "lighting",
+    lamp: "furniture", lantern: "furniture", light: "furniture",
 
     // environment / nature
     tree: "environment", rock: "environment", water: "environment",
     nature: "environment", plant: "environment", flower: "environment",
-    flowers: "environment",
+    flowers: "environment", grass: "environment", mountain: "environment",
+    bush: "environment", shrub: "environment", fern: "environment",
+    boulder: "environment", cliff: "environment",
   };
 
   if (TYPE_CATEGORY[t]) return TYPE_CATEGORY[t];
@@ -100,88 +109,168 @@ export function classifyAssetCategory(
   return "prop";
 }
 
-// ─── Keyword mapping: type → specific object tags ───────────────────────────
-// Only maps types that have known matching assets. Keeps matches tight.
+// ─── Keyword mapping: type → search terms aligned with curated tags ─────────
+// Maps structure types to the curated keywords used in the GCS catalog.
+// This helps the resolver find the right model even when the structure type
+// doesn't exactly match a tag (e.g., "lamp" → also searches "lantern", "light").
 
 const TYPE_SEARCH_TAGS: Record<string, string[]> = {
   // lighting
-  lamp: ["lamp", "lantern", "light"],
-  lantern: ["lantern", "lamp"],
-  chandelier: ["chandelier", "light", "ceiling"],
-  candle: ["candle", "holder"],
+  lamp: ["lamp", "lantern", "light", "desk lamp", "street lamp"],
+  lantern: ["lantern", "lamp", "light", "oil lamp"],
+  chandelier: ["chandelier", "hanging light", "ceiling"],
+  candle: ["candle", "candlestick", "candleholders"],
   // furniture — chairs
-  chair: ["chair", "seat", "armchair"],
-  armchair: ["armchair", "chair"],
-  stool: ["stool", "bar", "seat"],
+  chair: ["chair", "seating", "armchair", "wooden chair"],
+  armchair: ["armchair", "chair", "upholstered"],
+  stool: ["stool", "bar stool", "seating"],
   // furniture — tables
-  table: ["table", "wooden", "dining"],
-  desk: ["desk", "table", "school"],
+  table: ["table", "wooden table", "dining"],
+  desk: ["desk", "workspace", "writing"],
   // furniture — seating
-  sofa: ["sofa", "couch"],
-  couch: ["sofa", "couch"],
-  ottoman: ["ottoman", "pouf"],
-  bench: ["bench", "seat"],
+  sofa: ["sofa", "couch", "living room"],
+  couch: ["couch", "sofa", "living room"],
+  ottoman: ["ottoman", "footstool", "upholstered"],
+  bench: ["bench", "seating", "outdoor"],
+  // furniture — beds
+  bed: ["bed", "mattress", "bedroom"],
   // furniture — storage
-  cabinet: ["cabinet", "storage"],
-  shelf: ["shelf", "storage"],
-  dresser: ["commode", "dresser"],
-  bed: ["bed", "bedroom"],
-  nightstand: ["nightstand", "bedside"],
+  cabinet: ["cabinet", "storage", "wooden"],
+  shelf: ["shelf", "shelves", "storage"],
+  bookshelf: ["bookshelf", "shelves", "wooden"],
+  dresser: ["commode", "dresser", "drawer"],
+  nightstand: ["nightstand", "bedside table"],
+  drawer: ["drawer", "cabinet", "storage"],
   // vehicles
-  car: ["car", "automobile", "vehicle"],
-  cart: ["cart", "coffee"],
-  truck: ["truck", "vehicle"],
+  car: ["car", "automobile", "sedan", "vehicle"],
+  truck: ["truck", "pickup truck", "vehicle", "utility"],
+  spaceship: ["spaceship", "spacecraft", "sci-fi", "futuristic"],
+  ship: ["ship", "boat", "sailing", "naval"],
+  boat: ["ship", "boat", "sailing"],
+  // characters / animals
+  horse: ["horse", "equine", "steed"],
+  cow: ["cow", "bovine", "livestock"],
+  fox: ["fox", "canine", "wildlife"],
+  deer: ["deer", "wildlife", "buck"],
+  wolf: ["wolf", "predator", "canine"],
+  dog: ["husky", "shiba inu", "dog", "canine"],
+  cat: ["cat", "statue", "concrete"],
+  astronaut: ["astronaut", "space", "suit"],
+  king: ["king", "royalty", "medieval"],
+  farmer: ["farmer", "rural", "agricultural"],
+  adventurer: ["adventurer", "RPG", "fantasy", "hero"],
+  robot: ["mech", "robot", "mechanical"],
   // nature / environment
-  tree: ["tree", "trunk"],
-  rock: ["rock", "boulder", "stone"],
-  boulder: ["boulder", "rock", "stone"],
-  plant: ["plant", "flower"],
-  flower: ["flower", "dandelion", "plant"],
-  flowers: ["flower", "dandelion", "plant"],
+  tree: ["tree", "trees", "conifer", "pine", "fir", "evergreen"],
+  rock: ["rock", "stone", "boulder"],
+  boulder: ["boulder", "rock", "large", "stone"],
+  plant: ["plant", "potted", "indoor", "houseplant"],
+  flower: ["flower", "wildflower", "bloom"],
+  flowers: ["flowers", "bloom", "garden", "colorful"],
+  grass: ["grass", "ground cover", "lawn"],
+  bush: ["bush", "shrub", "foliage"],
+  shrub: ["shrub", "bush", "plant"],
+  mountain: ["mountain", "peak", "terrain"],
+  cliff: ["cliff", "coastal", "rocky"],
+  // structures
+  house: ["house", "home", "residential", "building", "dwelling"],
+  building: ["building", "city", "structure"],
+  castle: ["castle", "medieval", "fortress"],
+  wall: ["wall", "wooden", "barrier", "stone wall"],
+  door: ["door", "entrance", "wooden"],
+  gate: ["gate", "iron gate", "entrance"],
+  fence: ["fence", "chain link", "barrier"],
+  tent: ["tent", "camping", "shelter"],
+  hut: ["hut", "shelter", "primitive", "village"],
+  stairs: ["stairs", "steps", "staircase"],
   // props — containers
-  barrel: ["barrel", "container"],
-  crate: ["box", "cardboard", "crate"],
-  box: ["box", "cardboard", "crate"],
+  barrel: ["barrel", "wooden", "container", "storage"],
+  crate: ["crate", "wooden", "box", "storage"],
+  box: ["box", "cardboard", "crate", "storage"],
+  basket: ["basket", "wicker", "container"],
+  chest: ["chest", "treasure", "medieval"],
+  bucket: ["bucket", "wooden", "rustic"],
+  bottle: ["bottle", "glass", "container"],
   // props — electronics
-  tv: ["tv", "television"],
-  television: ["tv", "television"],
-  radio: ["boombox", "radio"],
-  boombox: ["boombox", "music"],
-  camera: ["camera", "photo"],
+  tv: ["monitor", "screen", "display", "computer"],
+  television: ["monitor", "screen", "display"],
+  radio: ["boombox", "music", "speaker"],
+  boombox: ["boombox", "music", "speaker", "stereo"],
+  camera: ["camera", "photo", "vintage"],
+  phone: ["phone", "smartphone", "mobile"],
+  computer: ["monitor", "screen", "computer"],
   // props — sports
-  ball: ["baseball", "football", "ball"],
+  ball: ["baseball", "football", "sport", "ball"],
   baseball: ["baseball", "bat", "sport"],
-  football: ["football", "sport"],
+  football: ["football", "sport", "ball"],
   // props — food
-  cake: ["cake", "food"],
-  bread: ["croissant", "bread", "food"],
+  cake: ["cake", "dessert", "food", "baked"],
+  bread: ["croissant", "pastry", "food", "baked"],
+  apple: ["apple", "fruit", "food"],
   // props — weapons
-  sword: ["katana", "sword", "blade"],
-  katana: ["katana", "sword"],
-  cannon: ["cannon", "artillery"],
+  sword: ["sword", "blade", "medieval", "weapon"],
+  katana: ["katana", "japanese sword", "blade"],
+  axe: ["axe", "wooden", "chopping", "tool"],
+  knife: ["knife", "blade", "cutting"],
+  shield: ["shield", "kite", "medieval", "defense"],
+  gun: ["pistol", "rifle", "firearm"],
+  rifle: ["rifle", "assault", "gun", "firearm"],
+  pistol: ["pistol", "gun", "handgun"],
+  cannon: ["cannon", "artillery", "medieval"],
   // props — tools
-  drill: ["drill", "tool"],
-  crowbar: ["crowbar", "tool"],
+  drill: ["drill", "power tool", "electric"],
+  crowbar: ["crowbar", "pry bar", "tool"],
+  hammer: ["hammer", "wooden", "mallet"],
+  wrench: ["wrench", "ratchet", "pipe wrench"],
+  saw: ["handsaw", "saw", "woodworking"],
+  shovel: ["spade", "shovel", "garden tool"],
   // props — music
-  guitar: ["ukulele", "guitar", "instrument"],
-  ukulele: ["ukulele", "instrument"],
+  guitar: ["ukulele", "guitar", "instrument", "music"],
+  ukulele: ["ukulele", "instrument", "music"],
   // props — decorative
-  vase: ["vase", "ceramic", "brass"],
-  goblet: ["goblet", "cup", "brass"],
-  pot: ["pot", "brass", "cooking"],
+  vase: ["vase", "ceramic", "brass", "decorative"],
+  goblet: ["goblet", "cup", "brass", "drinking"],
+  pot: ["pot", "brass", "cooking", "enamel"],
   pan: ["pan", "brass", "cooking"],
-  book: ["book", "library"],
-  books: ["book", "library"],
-  chess: ["chess", "game"],
-  sign: ["sign", "warning"],
-  // statues
-  elephant: ["elephant", "statue"],
-  cat: ["cat", "statue"],
-  bull: ["bull", "head"],
+  clock: ["clock", "mantel", "grandfather", "time"],
+  mirror: ["mirror", "ornate", "wall"],
+  frame: ["picture frame", "frame", "wall art"],
+  book: ["book", "encyclopedia"],
+  chess: ["chess", "board game", "strategy"],
+  sign: ["sign", "warning", "chalkboard"],
+  rug: ["rug", "carpet", "round", "floor covering"],
+  pillow: ["pillow", "throw", "cushion"],
+  // statues / decorative figures
+  elephant: ["elephant", "carved", "wooden", "figurine"],
+  lion: ["lion", "head", "wall mount"],
+  bull: ["bull", "bovine", "head"],
+  gnome: ["gnome", "garden", "figurine"],
+  bust: ["bust", "marble", "statue", "classical"],
   // screen / divider
-  screen: ["screen", "divider"],
-  divider: ["screen", "divider"],
-  fan: ["fan", "ceiling"],
+  screen: ["screen", "divider", "chinese", "panels"],
+  divider: ["screen", "divider", "panels"],
+  fan: ["fan", "ceiling fan", "ventilation"],
+  // household
+  toilet: ["toilet", "bathroom", "plumbing"],
+  sink: ["sink", "bathroom", "basin"],
+  // infrastructure
+  ladder: ["ladder", "climbing", "access"],
+  ramp: ["ramp", "slope", "incline"],
+  pipe: ["pipes", "modular", "industrial"],
+  fire_hydrant: ["fire hydrant", "water", "city"],
+  dumpster: ["dumpster", "trash", "waste"],
+  trash: ["trash can", "garbage", "waste"],
+  // sci-fi
+  mech: ["mech", "robot", "mechanical", "sci-fi"],
+  blaster: ["blaster", "laser gun", "sci-fi"],
+  rover: ["rover", "space", "exploration"],
+  planet: ["planet", "space", "celestial body"],
+  // market / medieval
+  market: ["market stall", "bazaar", "shop"],
+  inn: ["inn", "fantasy", "tavern"],
+  stable: ["stable", "horse", "fantasy", "barn"],
+  farm: ["farm", "rural", "agricultural"],
+  bonfire: ["bonfire", "fire", "campfire", "flame"],
 };
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -213,15 +302,17 @@ export function resolveAssets(blueprint: BlueprintJSON): BlueprintJSON {
 }
 
 /**
- * Resolve keywords to a model asset from the GCS catalog.
+ * Resolve keywords to a model asset from the GCS catalog using scoring.
  *
- * STRICT: Always tries to return a model. Pipeline:
- * 1. Exact tag match within category
- * 2. Exact tag match ignoring category
- * 3. Fuzzy partial tag match
- * 4. Category fallback (first model in category)
+ * STRICT: Always tries to return a model. Scoring pipeline:
+ * - Exact ID match: +100
+ * - Exact tag match: +20
+ * - ID contains keyword: +10
+ * - Multi-word tag contains keyword: +5
+ * - Fuzzy (keyword contains tag): +3
+ * - Category match bonus: +2
  *
- * Only returns null if keywords are empty.
+ * Returns the highest-scoring asset, or category fallback, or null.
  */
 export function resolveAsset(
   keywords: string[],
@@ -232,37 +323,65 @@ export function resolveAsset(
     .map((k) => k.toLowerCase())
     .filter((k) => !CATEGORY_TERMS.has(k) && k.length > 1);
 
-  if (filtered.length === 0) return null;
-
-  // 1. Exact tag/id match, category-gated
-  for (const kw of filtered) {
-    const match = ENVIRONMENT_CATALOG.find((a) =>
-      (category == null || a.category === category) &&
-      (a.tags.some((t) => t === kw) || a.id === kw)
-    );
-    if (match) return match;
+  if (filtered.length === 0) {
+    // Category fallback
+    if (category) {
+      return ENVIRONMENT_CATALOG.find((a) => a.category === category) || null;
+    }
+    return null;
   }
 
-  // 2. Exact tag/id match, ignoring category
-  for (const kw of filtered) {
-    const match = ENVIRONMENT_CATALOG.find((a) =>
-      a.tags.some((t) => t === kw) || a.id === kw
-    );
-    if (match) return match;
+  let bestMatch: EnvironmentAsset | null = null;
+  let bestScore = 0;
+
+  for (const asset of ENVIRONMENT_CATALOG) {
+    let score = 0;
+
+    // Category match bonus
+    if (category == null || asset.category === category) {
+      score += 2;
+    }
+
+    for (const kw of filtered) {
+      // Exact ID match — strongest signal
+      if (asset.id === kw) {
+        score += 100;
+        continue;
+      }
+      // Exact tag match
+      if (asset.tags.some((t) => t === kw)) {
+        score += 20;
+        continue;
+      }
+      // ID contains keyword (e.g., "chair" in "wooden_chair_01")
+      if (asset.id.includes(kw)) {
+        score += 10;
+        continue;
+      }
+      // Multi-word tag contains keyword (e.g., "coffee" in "coffee table")
+      if (asset.tags.some((t) => t.includes(" ") && t.includes(kw))) {
+        score += 5;
+        continue;
+      }
+      // Fuzzy: keyword contains a tag (tag is substring of keyword)
+      if (asset.tags.some((t) => t.length > 2 && kw.includes(t) && kw !== t)) {
+        score += 3;
+        continue;
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = asset;
+    }
   }
 
-  // 3. Fuzzy partial tag match
-  for (const kw of filtered) {
-    const match = ENVIRONMENT_CATALOG.find((a) =>
-      a.tags.some((t) => t.includes(kw) || kw.includes(t))
-    );
-    if (match) return match;
-  }
+  // Minimum threshold: at least one real match beyond just category bonus
+  if (bestScore > 2) return bestMatch;
 
-  // 4. Category fallback — pick first model in the category
+  // Category fallback — pick first model in the category
   if (category) {
-    const fallback = ENVIRONMENT_CATALOG.find((a) => a.category === category);
-    if (fallback) return fallback;
+    return ENVIRONMENT_CATALOG.find((a) => a.category === category) || null;
   }
 
   return null;
@@ -293,7 +412,7 @@ function findPrimaryStructureId(structures: BlueprintStructure[]): string | null
 function resolveStructureAsset(
   s: BlueprintStructure,
   intentName = "",
-  archetype = "",
+  _archetype = "",
 ): BlueprintStructure {
   // Skip if already has model, geometry, children, or light
   if (s.modelSrc || s.geometry || s.children?.length || s.lightProps) {
@@ -358,4 +477,3 @@ function resolveStructureAsset(
 
   return s;
 }
-
