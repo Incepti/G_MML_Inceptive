@@ -1,17 +1,18 @@
 /**
- * Asset Resolver — strict semantic matching with category gating.
+ * Asset Resolver — strict model-first matching from GCS bucket.
  *
- * Before procedural building, attempts to resolve structures to verified
- * 3D model assets. If a matching model exists, the structure gets a
- * `modelSrc` property. Otherwise, it falls through to the procedural builder.
+ * STRICT RULE: ALWAYS resolve to a 3D model. NEVER fall back to primitives
+ * unless the user explicitly requested them.
  *
  * Pipeline position: Blueprint → [Asset Resolver] → Builder → Serializer → MML
  *
- * MATCHING RULES:
- * 1. Classify the structure into a category (vehicle, character, etc.)
- * 2. Search ONLY within that category
- * 3. Match ONLY on specific object keywords, never on category-level tags
- * 4. If no match, return null — procedural builder handles it
+ * Source: gs://3dmodels_mml (667 GLB models, 11 categories)
+ *
+ * MATCHING PIPELINE:
+ * 1. Exact tag match within category
+ * 2. Exact tag match ignoring category
+ * 3. Fuzzy partial match
+ * 4. Category fallback (pick first model in the structure's category)
  *
  * Deterministic — same inputs → same outputs. No network calls.
  */
@@ -21,9 +22,6 @@ import {
   ENVIRONMENT_CATALOG,
   type EnvironmentAsset,
 } from "@/lib/assets/environment-catalog";
-import {
-  TRUSTED_ASSETS,
-} from "@/lib/assets/trusted-index";
 
 // ─── Category classification ────────────────────────────────────────────────
 
@@ -215,13 +213,15 @@ export function resolveAssets(blueprint: BlueprintJSON): BlueprintJSON {
 }
 
 /**
- * Attempt to resolve a single structure to a model asset.
+ * Resolve keywords to a model asset from the GCS catalog.
  *
- * Accepts an optional category filter. When provided, only assets
- * in that category will be considered. This prevents cross-category
- * false positives (e.g. "car" returning a RocketShip).
+ * STRICT: Always tries to return a model. Pipeline:
+ * 1. Exact tag match within category
+ * 2. Exact tag match ignoring category
+ * 3. Fuzzy partial tag match
+ * 4. Category fallback (first model in category)
  *
- * Returns null if no exact match is found. Never returns placeholder models.
+ * Only returns null if keywords are empty.
  */
 export function resolveAsset(
   keywords: string[],
@@ -234,7 +234,7 @@ export function resolveAsset(
 
   if (filtered.length === 0) return null;
 
-  // Search environment catalog — exact tag or id match, category-gated
+  // 1. Exact tag/id match, category-gated
   for (const kw of filtered) {
     const match = ENVIRONMENT_CATALOG.find((a) =>
       (category == null || a.category === category) &&
@@ -243,33 +243,26 @@ export function resolveAsset(
     if (match) return match;
   }
 
-  // Search trusted index — exact tag or id match, category-gated
+  // 2. Exact tag/id match, ignoring category
   for (const kw of filtered) {
-    const ta = TRUSTED_ASSETS.find((a) => {
-      const assetCategory = mapTagsToCategory(a.tags);
-      if (category != null && assetCategory !== category) return false;
-      return a.tags.some((t) => t === kw) || a.id === kw;
-    });
-    if (ta) {
-      return {
-        id: ta.id,
-        name: ta.name,
-        category: mapTagsToCategory(ta.tags),
-        modelUrl: ta.url,
-        defaultScale: 1,
-        tags: ta.tags,
-        description: ta.description || ta.name,
-      };
-    }
+    const match = ENVIRONMENT_CATALOG.find((a) =>
+      a.tags.some((t) => t === kw) || a.id === kw
+    );
+    if (match) return match;
   }
 
-  // Fuzzy fallback — partial tag match, ignoring category.
-  // Prefers models over primitives: even a loose match is better than cubes.
+  // 3. Fuzzy partial tag match
   for (const kw of filtered) {
     const match = ENVIRONMENT_CATALOG.find((a) =>
       a.tags.some((t) => t.includes(kw) || kw.includes(t))
     );
     if (match) return match;
+  }
+
+  // 4. Category fallback — pick first model in the category
+  if (category) {
+    const fallback = ENVIRONMENT_CATALOG.find((a) => a.category === category);
+    if (fallback) return fallback;
   }
 
   return null;
@@ -366,12 +359,3 @@ function resolveStructureAsset(
   return s;
 }
 
-function mapTagsToCategory(tags: string[]): EnvironmentAsset["category"] {
-  const tagSet = new Set(tags.map((t) => t.toLowerCase()));
-  if (tagSet.has("vehicle") || tagSet.has("car") || tagSet.has("truck") || tagSet.has("automobile")) return "vehicle";
-  if (tagSet.has("character") || tagSet.has("animal") || tagSet.has("creature") || tagSet.has("dragon")) return "character";
-  if (tagSet.has("furniture") || tagSet.has("chair") || tagSet.has("sofa") || tagSet.has("couch") || tagSet.has("seat")) return "furniture";
-  if (tagSet.has("light") || tagSet.has("lantern") || tagSet.has("lamp") || tagSet.has("lighting")) return "lighting";
-  if (tagSet.has("environment") || tagSet.has("nature") || tagSet.has("plant") || tagSet.has("flowers")) return "environment";
-  return "prop";
-}

@@ -34,49 +34,44 @@ function makeStructure(
   } as BlueprintStructure;
 }
 
-// ─── resolveAsset: strict matching ─────────────────────────────────────────
+// ─── resolveAsset: GCS bucket matching ──────────────────────────────────────
 
 describe("resolveAsset", () => {
-  it("resolves 'chair' to polyhaven armchair model", () => {
+  it("resolves 'chair' to a GCS furniture model", () => {
     const chair = resolveAsset(["chair"], "furniture");
     expect(chair).not.toBeNull();
-    expect(chair!.tags).toContain("chair");
-    expect(chair!.modelUrl).toContain("polyhaven");
+    expect(chair!.modelUrl).toContain("3dmodels_mml");
+    expect(chair!.modelUrl).toContain(".glb");
   });
 
-  it("resolves 'lantern' to polyhaven lantern model", () => {
-    const lantern = resolveAsset(["lantern"]);
-    expect(lantern).not.toBeNull();
-    expect(lantern!.id).toBe("lantern");
-    expect(lantern!.modelUrl).toContain("polyhaven");
+  it("resolves 'tree' to a GCS environment model", () => {
+    const tree = resolveAsset(["tree"], "environment");
+    expect(tree).not.toBeNull();
+    expect(tree!.modelUrl).toContain("3dmodels_mml");
   });
 
-  it("resolves 'barrel' to polyhaven barrel model", () => {
+  it("resolves 'car' to a GCS vehicle model", () => {
+    const car = resolveAsset(["car"], "vehicle");
+    expect(car).not.toBeNull();
+    expect(car!.category).toBe("vehicle");
+  });
+
+  it("resolves 'barrel' to a GCS prop model", () => {
     const barrel = resolveAsset(["barrel"]);
     expect(barrel).not.toBeNull();
     expect(barrel!.tags).toContain("barrel");
   });
 
-  it("resolves 'sofa' to polyhaven sofa model", () => {
+  it("resolves 'fox' to a GCS character model", () => {
+    const fox = resolveAsset(["fox"], "character");
+    expect(fox).not.toBeNull();
+    expect(fox!.category).toBe("character");
+  });
+
+  it("resolves 'sofa' to a GCS furniture model", () => {
     const sofa = resolveAsset(["sofa"], "furniture");
     expect(sofa).not.toBeNull();
     expect(sofa!.tags).toContain("sofa");
-  });
-
-  it("resolves 'tree' to dead tree trunk from polyhaven", () => {
-    const tree = resolveAsset(["tree"], "environment");
-    expect(tree).not.toBeNull();
-    expect(tree!.tags).toContain("tree");
-  });
-
-  it("resolves 'boulder' / 'rock' to polyhaven rock model", () => {
-    const rock = resolveAsset(["rock"], "environment");
-    expect(rock).not.toBeNull();
-    expect(rock!.tags).toContain("rock");
-
-    const boulder = resolveAsset(["boulder"], "environment");
-    expect(boulder).not.toBeNull();
-    expect(boulder!.tags).toContain("boulder");
   });
 
   it("returns null for generic category terms", () => {
@@ -84,60 +79,69 @@ describe("resolveAsset", () => {
     expect(resolveAsset(["animal"])).toBeNull();
   });
 
-  it("returns null when no keywords match any asset", () => {
-    expect(resolveAsset(["castle", "fortress", "dungeon"])).toBeNull();
-    expect(resolveAsset(["wizard", "mage", "staff"])).toBeNull();
+  it("falls back to category when no keyword match", () => {
+    const result = resolveAsset(["wizard"], "character");
+    expect(result).not.toBeNull();
+    expect(result!.category).toBe("character");
   });
 
-  it("fuzzy fallback matches partial tags", () => {
-    // "sword" is an exact tag on katana
-    const sword = resolveAsset(["sword"]);
-    expect(sword).not.toBeNull();
-    expect(sword!.tags).toContain("sword");
+  it("fuzzy matches partial tags", () => {
+    const result = resolveAsset(["sword"]);
+    expect(result).not.toBeNull();
+  });
+
+  it("all model URLs point to GCS bucket", () => {
+    const models = [
+      resolveAsset(["chair"], "furniture"),
+      resolveAsset(["tree"], "environment"),
+      resolveAsset(["car"], "vehicle"),
+      resolveAsset(["horse"], "character"),
+    ];
+    for (const m of models) {
+      expect(m).not.toBeNull();
+      expect(m!.modelUrl).toMatch(/storage\.googleapis\.com\/3dmodels_mml/);
+    }
   });
 });
 
 // ─── resolveAssets: blueprint-level ────────────────────────────────────────
 
 describe("resolveAssets", () => {
-  it("resolves structures by ID word splitting (tree-1 → tree)", () => {
-    const bp = makeBlueprint([
-      makeStructure("tree-1", "custom"),
-    ]);
-
+  it("resolves structures by ID word splitting (tree-1 -> tree)", () => {
+    const bp = makeBlueprint([makeStructure("tree-1", "custom")]);
     const result = resolveAssets(bp);
     const tree = result.scene.structures[0];
     expect(tree.modelSrc).toBeDefined();
-    expect(tree.modelSrc).toContain("polyhaven");
+    expect(tree.modelSrc).toContain("3dmodels_mml");
   });
 
-  it("resolves chair structures from polyhaven", () => {
-    const bp = makeBlueprint([
-      makeStructure("main-object", "furniture"),
-    ], "furniture", "chair");
-
+  it("resolves chair structures from GCS", () => {
+    const bp = makeBlueprint(
+      [makeStructure("main-object", "furniture")],
+      "furniture",
+      "chair",
+    );
     const result = resolveAssets(bp);
-    const chair = result.scene.structures[0];
-    expect(chair.modelSrc).toBeDefined();
-    expect(chair.modelSrc).toContain("polyhaven");
+    expect(result.scene.structures[0].modelSrc).toBeDefined();
+    expect(result.scene.structures[0].modelSrc).toContain("3dmodels_mml");
   });
 
   it("intent keywords only apply to primary structure", () => {
-    // Multi-object: "chair" intent should NOT leak to tree-1
-    const bp = makeBlueprint([
-      makeStructure("main-object", "furniture"),
-      makeStructure("tree-1", "nature"),
-    ], "furniture", "chair");
-
+    const bp = makeBlueprint(
+      [
+        makeStructure("main-object", "furniture"),
+        makeStructure("tree-1", "nature"),
+      ],
+      "furniture",
+      "chair",
+    );
     const result = resolveAssets(bp);
     const main = result.scene.structures.find((s) => s.id === "main-object")!;
     const tree = result.scene.structures.find((s) => s.id === "tree-1")!;
 
-    // Main should resolve to a chair
     expect(main.modelSrc).toBeDefined();
-    // Tree should resolve to a tree (from its own "tree" type), NOT a chair
     if (tree.modelSrc) {
-      expect(tree.modelSrc).not.toContain("Chair");
+      expect(tree.modelSrc).not.toMatch(/chair/i);
     }
   });
 
@@ -147,7 +151,6 @@ describe("resolveAssets", () => {
         geometry: { kind: "cube" },
       } as Partial<BlueprintStructure>),
     ]);
-
     const result = resolveAssets(bp);
     expect(result.scene.structures[0].modelSrc).toBeUndefined();
   });
@@ -158,7 +161,6 @@ describe("resolveAssets", () => {
         modelSrc: "https://example.com/custom.glb",
       }),
     ]);
-
     const result = resolveAssets(bp);
     expect(result.scene.structures[0].modelSrc).toBe("https://example.com/custom.glb");
   });
@@ -169,7 +171,6 @@ describe("resolveAssets", () => {
         children: [makeStructure("child", "prop")],
       }),
     ]);
-
     const result = resolveAssets(bp);
     expect(result.scene.structures[0].modelSrc).toBeUndefined();
   });
@@ -180,7 +181,6 @@ describe("resolveAssets", () => {
         lightProps: { type: "point", intensity: 1, color: "#fff" },
       } as Partial<BlueprintStructure>),
     ]);
-
     const result = resolveAssets(bp);
     expect(result.scene.structures[0].modelSrc).toBeUndefined();
   });

@@ -29,7 +29,7 @@ export interface TrustedAsset {
   sizeBytes: number;
   mimeType: string;
   tags: string[];
-  source: "khronos" | "modelviewer" | "mml-io" | "geez-public" | "polyhaven" | "polypizza" | "community";
+  source: "gcs-bucket" | "geez-public" | "community";
   validated: boolean;
 }
 

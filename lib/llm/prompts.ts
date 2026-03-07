@@ -22,14 +22,13 @@ MML ALPHA RULES (non-negotiable):
 - NEVER fabricate .glb/.gltf URLs. Use only catalog URLs.
 - m-attr-anim: ONLY if user explicitly requests animation. Default = no animation.
 
-3D MODEL RULE (STRICT):
-- ALWAYS prefer 3D models over primitives (m-cube, m-sphere, m-cylinder).
-- Primitives are ONLY used when the user EXPLICITLY asks for them (e.g. "make it from cubes").
-- The asset resolver will match structures to catalog models automatically.
-- APPROVED 3D MODEL SOURCES (no others allowed):
-  1. Poly Haven (polyhaven.com) — CC0 models
-  2. Poly Pizza (poly.pizza) — CC0 models
-  3. Geez Collection (IDs 0-5555) — project assets
+3D MODEL RULE (STRICT — NO EXCEPTIONS):
+- ALWAYS use 3D models. NEVER use primitives (m-cube, m-sphere, m-cylinder) unless the user EXPLICITLY asks for them.
+- There is NO fallback to primitives. If no model matches, the resolver will find the closest match from 667 available models.
+- The asset resolver matches structures to catalog models automatically.
+- ONLY SOURCE: GCS bucket gs://3dmodels_mml (667 GLB models, 11 categories)
+- Also available: Geez Collection (IDs 0-5555)
+- NO other external sources. No polyhaven, no poly.pizza, no Khronos, no fabricated URLs.
 `;
 
 // ─── Shared: Part role + shapeHint reference ────────────────────────────────
