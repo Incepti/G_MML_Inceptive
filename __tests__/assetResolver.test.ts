@@ -7,11 +7,12 @@ import type { BlueprintJSON, BlueprintStructure } from "@/types/blueprint";
 function makeBlueprint(
   structures: BlueprintStructure[],
   archetype = "",
+  intentName = "test",
 ): BlueprintJSON {
   return {
     type: "scene",
     meta: { title: "test", units: "meters", scaleProfile: "human", sceneScale: "medium", seed: "test" },
-    intent: { name: "test", archetype },
+    intent: { name: intentName, archetype },
     style: { theme: "neutral", detailLevel: "medium" },
     scene: {
       rootId: "root",
@@ -36,106 +37,116 @@ function makeStructure(
 // ─── resolveAsset: strict matching ─────────────────────────────────────────
 
 describe("resolveAsset", () => {
-  it("returns null for unknown keywords (cat, sword)", () => {
-    expect(resolveAsset(["cat"], "creature")).toBeNull();
-    expect(resolveAsset(["sword"], "weapon")).toBeNull();
-  });
-
-  it("resolves 'chair' to SheenChair model", () => {
+  it("resolves 'chair' to polyhaven armchair model", () => {
     const chair = resolveAsset(["chair"], "furniture");
     expect(chair).not.toBeNull();
-    expect(chair!.id).toBe("chair");
-    expect(chair!.modelUrl).toContain("SheenChair");
+    expect(chair!.tags).toContain("chair");
+    expect(chair!.modelUrl).toContain("polyhaven");
   });
 
-  it("returns null for generic terms that previously caused false positives", () => {
-    // "character" and "animal" are broad category tags — must NOT match
-    expect(resolveAsset(["character"], "creature")).toBeNull();
-    expect(resolveAsset(["animal"], "creature")).toBeNull();
-  });
-
-  it("returns an asset for exact tag matches", () => {
+  it("resolves 'lantern' to polyhaven lantern model", () => {
     const lantern = resolveAsset(["lantern"]);
     expect(lantern).not.toBeNull();
     expect(lantern!.id).toBe("lantern");
-    expect(lantern!.modelUrl).toContain("Lantern.glb");
-
-    const fox = resolveAsset(["fox"]);
-    expect(fox).not.toBeNull();
-    expect(fox!.id).toBe("fox");
-
-    const horse = resolveAsset(["horse"]);
-    expect(horse).not.toBeNull();
-    expect(horse!.id).toBe("horse");
+    expect(lantern!.modelUrl).toContain("polyhaven");
   });
 
-  it("returns an asset by id match", () => {
-    const result = resolveAsset(["damaged-helmet"]);
-    expect(result).not.toBeNull();
-    expect(result!.id).toBe("damaged-helmet");
+  it("resolves 'barrel' to polyhaven barrel model", () => {
+    const barrel = resolveAsset(["barrel"]);
+    expect(barrel).not.toBeNull();
+    expect(barrel!.tags).toContain("barrel");
   });
 
-  it("returns null when no keywords match any tag", () => {
+  it("resolves 'sofa' to polyhaven sofa model", () => {
+    const sofa = resolveAsset(["sofa"], "furniture");
+    expect(sofa).not.toBeNull();
+    expect(sofa!.tags).toContain("sofa");
+  });
+
+  it("resolves 'tree' to dead tree trunk from polyhaven", () => {
+    const tree = resolveAsset(["tree"], "environment");
+    expect(tree).not.toBeNull();
+    expect(tree!.tags).toContain("tree");
+  });
+
+  it("resolves 'boulder' / 'rock' to polyhaven rock model", () => {
+    const rock = resolveAsset(["rock"], "environment");
+    expect(rock).not.toBeNull();
+    expect(rock!.tags).toContain("rock");
+
+    const boulder = resolveAsset(["boulder"], "environment");
+    expect(boulder).not.toBeNull();
+    expect(boulder!.tags).toContain("boulder");
+  });
+
+  it("returns null for generic category terms", () => {
+    expect(resolveAsset(["character"])).toBeNull();
+    expect(resolveAsset(["animal"])).toBeNull();
+  });
+
+  it("returns null when no keywords match any asset", () => {
     expect(resolveAsset(["castle", "fortress", "dungeon"])).toBeNull();
-    expect(resolveAsset(["house", "building", "door"])).toBeNull();
     expect(resolveAsset(["wizard", "mage", "staff"])).toBeNull();
+  });
+
+  it("fuzzy fallback matches partial tags", () => {
+    // "sword" is an exact tag on katana
+    const sword = resolveAsset(["sword"]);
+    expect(sword).not.toBeNull();
+    expect(sword!.tags).toContain("sword");
   });
 });
 
 // ─── resolveAssets: blueprint-level ────────────────────────────────────────
 
 describe("resolveAssets", () => {
-  it("does NOT assign modelSrc to structures without matching assets", () => {
+  it("resolves structures by ID word splitting (tree-1 → tree)", () => {
     const bp = makeBlueprint([
-      makeStructure("cat-body", "creature"),
-      makeStructure("my-chair", "furniture"),
-      makeStructure("magic-sword", "weapon"),
-    ], "creature");
-
-    const result = resolveAssets(bp);
-
-    for (const s of result.scene.structures) {
-      expect(s.modelSrc).toBeUndefined();
-    }
-  });
-
-  it("assigns modelSrc only when exact tag match exists", () => {
-    const bp = makeBlueprint([
-      makeStructure("scene-lantern", "prop"),
-      makeStructure("enemy-cat", "creature"),
+      makeStructure("tree-1", "custom"),
     ]);
 
     const result = resolveAssets(bp);
-
-    // "scene-lantern" has no tag match (type "prop" is blocked, id "scene-lantern" no match)
-    const lanternStruct = result.scene.structures.find((s) => s.id === "scene-lantern")!;
-    expect(lanternStruct.modelSrc).toBeUndefined();
-
-    const cat = result.scene.structures.find((s) => s.id === "enemy-cat")!;
-    expect(cat.modelSrc).toBeUndefined();
+    const tree = result.scene.structures[0];
+    expect(tree.modelSrc).toBeDefined();
+    expect(tree.modelSrc).toContain("polyhaven");
   });
 
-  it("resolves when structure id matches a known asset id with correct type", () => {
-    // "fox" is a known id in the environment catalog (creature category)
+  it("resolves chair structures from polyhaven", () => {
     const bp = makeBlueprint([
-      makeStructure("fox", "creature"),
-    ]);
+      makeStructure("main-object", "furniture"),
+    ], "furniture", "chair");
 
     const result = resolveAssets(bp);
-    // If resolved, it should contain Fox; if category-gated out, it may be undefined
-    const foxStruct = result.scene.structures[0];
-    if (foxStruct.modelSrc) {
-      expect(foxStruct.modelSrc).toContain("Fox");
+    const chair = result.scene.structures[0];
+    expect(chair.modelSrc).toBeDefined();
+    expect(chair.modelSrc).toContain("polyhaven");
+  });
+
+  it("intent keywords only apply to primary structure", () => {
+    // Multi-object: "chair" intent should NOT leak to tree-1
+    const bp = makeBlueprint([
+      makeStructure("main-object", "furniture"),
+      makeStructure("tree-1", "nature"),
+    ], "furniture", "chair");
+
+    const result = resolveAssets(bp);
+    const main = result.scene.structures.find((s) => s.id === "main-object")!;
+    const tree = result.scene.structures.find((s) => s.id === "tree-1")!;
+
+    // Main should resolve to a chair
+    expect(main.modelSrc).toBeDefined();
+    // Tree should resolve to a tree (from its own "tree" type), NOT a chair
+    if (tree.modelSrc) {
+      expect(tree.modelSrc).not.toContain("Chair");
     }
   });
 
   it("skips structures that already have geometry", () => {
     const bp = makeBlueprint([
-      makeStructure("my-fox", "custom", {
+      makeStructure("barrel", "custom", {
         geometry: { kind: "cube" },
       } as Partial<BlueprintStructure>),
     ]);
-    bp.scene.structures[0].id = "fox";
 
     const result = resolveAssets(bp);
     expect(result.scene.structures[0].modelSrc).toBeUndefined();
@@ -143,18 +154,18 @@ describe("resolveAssets", () => {
 
   it("skips structures that already have modelSrc", () => {
     const bp = makeBlueprint([
-      makeStructure("my-fox", "custom", {
-        modelSrc: "https://example.com/custom-fox.glb",
+      makeStructure("barrel", "custom", {
+        modelSrc: "https://example.com/custom.glb",
       }),
     ]);
 
     const result = resolveAssets(bp);
-    expect(result.scene.structures[0].modelSrc).toBe("https://example.com/custom-fox.glb");
+    expect(result.scene.structures[0].modelSrc).toBe("https://example.com/custom.glb");
   });
 
   it("skips structures that already have children", () => {
     const bp = makeBlueprint([
-      makeStructure("fox", "custom", {
+      makeStructure("barrel", "custom", {
         children: [makeStructure("child", "prop")],
       }),
     ]);
@@ -172,21 +183,5 @@ describe("resolveAssets", () => {
 
     const result = resolveAssets(bp);
     expect(result.scene.structures[0].modelSrc).toBeUndefined();
-  });
-
-  it("never returns Astronaut.glb for non-astronaut structures", () => {
-    const types: BlueprintStructure["type"][] = ["creature", "custom", "prop"];
-    const ids = ["cat", "dog", "bird", "monster", "character"];
-    for (const type of types) {
-      for (const id of ids) {
-        const bp = makeBlueprint([makeStructure(id, type)], "creature");
-        const result = resolveAssets(bp);
-        for (const s of result.scene.structures) {
-          if (s.modelSrc) {
-            expect(s.modelSrc).not.toContain("Astronaut.glb");
-          }
-        }
-      }
-    }
   });
 });

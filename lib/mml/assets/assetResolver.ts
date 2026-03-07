@@ -107,42 +107,83 @@ export function classifyAssetCategory(
 
 const TYPE_SEARCH_TAGS: Record<string, string[]> = {
   // lighting
-  lamp: ["lamp", "lantern"],
-  lantern: ["lantern"],
-  // furniture
-  chair: ["chair", "seat"],
+  lamp: ["lamp", "lantern", "light"],
+  lantern: ["lantern", "lamp"],
+  chandelier: ["chandelier", "light", "ceiling"],
+  candle: ["candle", "holder"],
+  // furniture — chairs
+  chair: ["chair", "seat", "armchair"],
+  armchair: ["armchair", "chair"],
+  stool: ["stool", "bar", "seat"],
+  // furniture — tables
+  table: ["table", "wooden", "dining"],
+  desk: ["desk", "table", "school"],
+  // furniture — seating
   sofa: ["sofa", "couch"],
   couch: ["sofa", "couch"],
-  stool: ["pouf", "stool"],
-  ottoman: ["pouf", "ottoman"],
-  fridge: ["refrigerator"],
-  refrigerator: ["refrigerator"],
+  ottoman: ["ottoman", "pouf"],
+  bench: ["bench", "seat"],
+  // furniture — storage
+  cabinet: ["cabinet", "storage"],
+  shelf: ["shelf", "storage"],
+  dresser: ["commode", "dresser"],
+  bed: ["bed", "bedroom"],
+  nightstand: ["nightstand", "bedside"],
   // vehicles
-  car: ["car", "automobile"],
-  truck: ["truck"],
-  rocket: ["rocket"],
+  car: ["car", "automobile", "vehicle"],
+  cart: ["cart", "coffee"],
+  truck: ["truck", "vehicle"],
   // nature / environment
-  tree: ["tree"],
-  rock: ["rock"],
-  plant: ["plant"],
-  flower: ["flowers"],
-  flowers: ["flowers"],
-  // props
-  barrel: ["barrel"],
-  crate: ["crate"],
-  cup: ["teacup", "cup"],
-  mug: ["teacup", "mug"],
-  watch: ["watch", "clock"],
-  skull: ["skull"],
-  candle: ["candle"],
-  // characters
-  horse: ["horse"],
-  fox: ["fox"],
-  fish: ["fish"],
-  robot: ["robot"],
-  duck: ["duck"],
-  astronaut: ["astronaut"],
-  dragon: ["dragon"],
+  tree: ["tree", "trunk"],
+  rock: ["rock", "boulder", "stone"],
+  boulder: ["boulder", "rock", "stone"],
+  plant: ["plant", "flower"],
+  flower: ["flower", "dandelion", "plant"],
+  flowers: ["flower", "dandelion", "plant"],
+  // props — containers
+  barrel: ["barrel", "container"],
+  crate: ["box", "cardboard", "crate"],
+  box: ["box", "cardboard", "crate"],
+  // props — electronics
+  tv: ["tv", "television"],
+  television: ["tv", "television"],
+  radio: ["boombox", "radio"],
+  boombox: ["boombox", "music"],
+  camera: ["camera", "photo"],
+  // props — sports
+  ball: ["baseball", "football", "ball"],
+  baseball: ["baseball", "bat", "sport"],
+  football: ["football", "sport"],
+  // props — food
+  cake: ["cake", "food"],
+  bread: ["croissant", "bread", "food"],
+  // props — weapons
+  sword: ["katana", "sword", "blade"],
+  katana: ["katana", "sword"],
+  cannon: ["cannon", "artillery"],
+  // props — tools
+  drill: ["drill", "tool"],
+  crowbar: ["crowbar", "tool"],
+  // props — music
+  guitar: ["ukulele", "guitar", "instrument"],
+  ukulele: ["ukulele", "instrument"],
+  // props — decorative
+  vase: ["vase", "ceramic", "brass"],
+  goblet: ["goblet", "cup", "brass"],
+  pot: ["pot", "brass", "cooking"],
+  pan: ["pan", "brass", "cooking"],
+  book: ["book", "library"],
+  books: ["book", "library"],
+  chess: ["chess", "game"],
+  sign: ["sign", "warning"],
+  // statues
+  elephant: ["elephant", "statue"],
+  cat: ["cat", "statue"],
+  bull: ["bull", "head"],
+  // screen / divider
+  screen: ["screen", "divider"],
+  divider: ["screen", "divider"],
+  fan: ["fan", "ceiling"],
 };
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -222,6 +263,15 @@ export function resolveAsset(
     }
   }
 
+  // Fuzzy fallback — partial tag match, ignoring category.
+  // Prefers models over primitives: even a loose match is better than cubes.
+  for (const kw of filtered) {
+    const match = ENVIRONMENT_CATALOG.find((a) =>
+      a.tags.some((t) => t.includes(kw) || kw.includes(t))
+    );
+    if (match) return match;
+  }
+
   return null;
 }
 
@@ -270,6 +320,9 @@ function resolveStructureAsset(
   keywords.push(s.type);
   if (s.id !== s.type) {
     keywords.push(s.id);
+    // Split id words: "tree-1" → ["tree"], "coffee-table-2" → ["coffee", "table"]
+    const idWords = s.id.split(/[\s\-_]+/).filter((w) => w.length > 2 && !/^\d+$/.test(w));
+    keywords.push(...idWords);
   }
 
   // Add modelTags if provided by the blueprint

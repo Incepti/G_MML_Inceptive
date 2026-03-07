@@ -19,8 +19,17 @@ MML ALPHA RULES (non-negotiable):
 - m-light type: point | directional | spot (NO "ambient")
 - m-label: use content= (NEVER text=)
 - HARD CAPS: Lights ≤ 8, Models ≤ 100, Entities ≤ 500
-- NEVER fabricate .glb URLs. Use only catalog URLs or primitives.
+- NEVER fabricate .glb/.gltf URLs. Use only catalog URLs.
 - m-attr-anim: ONLY if user explicitly requests animation. Default = no animation.
+
+3D MODEL RULE (STRICT):
+- ALWAYS prefer 3D models over primitives (m-cube, m-sphere, m-cylinder).
+- Primitives are ONLY used when the user EXPLICITLY asks for them (e.g. "make it from cubes").
+- The asset resolver will match structures to catalog models automatically.
+- APPROVED 3D MODEL SOURCES (no others allowed):
+  1. Poly Haven (polyhaven.com) — CC0 models
+  2. Poly Pizza (poly.pizza) — CC0 models
+  3. Geez Collection (IDs 0-5555) — project assets
 `;
 
 // ─── Shared: Part role + shapeHint reference ────────────────────────────────
