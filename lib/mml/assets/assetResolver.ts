@@ -290,13 +290,25 @@ export function resolveAssets(blueprint: BlueprintJSON): BlueprintJSON {
   // keywords causes cross-contamination.
   const primaryId = findPrimaryStructureId(blueprint.scene.structures);
 
-  const structures = blueprint.scene.structures.map((s) =>
-    resolveStructureAsset(
+  // Track used model IDs to ensure variety across structures
+  const usedModelIds = new Set<string>();
+
+  const structures = blueprint.scene.structures.map((s) => {
+    const resolved = resolveStructureAsset(
       s,
       s.id === primaryId ? intentName : "",
       s.id === primaryId ? archetype : "",
-    )
-  );
+      usedModelIds,
+    );
+    if (resolved.modelSrc) {
+      // Extract model ID from the resolved asset for dedup tracking
+      const catalog = ENVIRONMENT_CATALOG.find(
+        (a) => a.modelUrl === resolved.modelSrc,
+      );
+      if (catalog) usedModelIds.add(catalog.id);
+    }
+    return resolved;
+  });
 
   return { ...blueprint, scene: { ...blueprint.scene, structures } };
 }
@@ -317,6 +329,7 @@ export function resolveAssets(blueprint: BlueprintJSON): BlueprintJSON {
 export function resolveAsset(
   keywords: string[],
   category?: EnvironmentAsset["category"],
+  exclude?: Set<string>,
 ): EnvironmentAsset | null {
   // Filter out category-level terms — they must never be used as search keywords
   const filtered = keywords
@@ -326,13 +339,22 @@ export function resolveAsset(
   if (filtered.length === 0) {
     // Category fallback
     if (category) {
-      return ENVIRONMENT_CATALOG.find((a) => a.category === category) || null;
+      return (
+        ENVIRONMENT_CATALOG.find(
+          (a) => a.category === category && !exclude?.has(a.id),
+        ) ||
+        ENVIRONMENT_CATALOG.find((a) => a.category === category) ||
+        null
+      );
     }
     return null;
   }
 
+  // Two-pass scoring: prefer unused models for variety, fall back to any match
   let bestMatch: EnvironmentAsset | null = null;
   let bestScore = 0;
+  let bestMatchAny: EnvironmentAsset | null = null;
+  let bestScoreAny = 0;
 
   for (const asset of ENVIRONMENT_CATALOG) {
     let score = 0;
@@ -370,18 +392,32 @@ export function resolveAsset(
       }
     }
 
-    if (score > bestScore) {
+    // Track best overall match (fallback if all similar models are used)
+    if (score > bestScoreAny) {
+      bestScoreAny = score;
+      bestMatchAny = asset;
+    }
+
+    // Track best unused match (preferred for variety)
+    if (!exclude?.has(asset.id) && score > bestScore) {
       bestScore = score;
       bestMatch = asset;
     }
   }
 
-  // Minimum threshold: at least one real match beyond just category bonus
+  // Prefer unused match, fall back to any match
   if (bestScore > 2) return bestMatch;
+  if (bestScoreAny > 2) return bestMatchAny;
 
-  // Category fallback — pick first model in the category
+  // Category fallback — pick first unused model in the category
   if (category) {
-    return ENVIRONMENT_CATALOG.find((a) => a.category === category) || null;
+    return (
+      ENVIRONMENT_CATALOG.find(
+        (a) => a.category === category && !exclude?.has(a.id),
+      ) ||
+      ENVIRONMENT_CATALOG.find((a) => a.category === category) ||
+      null
+    );
   }
 
   return null;
@@ -413,6 +449,7 @@ function resolveStructureAsset(
   s: BlueprintStructure,
   intentName = "",
   _archetype = "",
+  usedModelIds?: Set<string>,
 ): BlueprintStructure {
   // Skip if already has model, geometry, children, or light
   if (s.modelSrc || s.geometry || s.children?.length || s.lightProps) {
@@ -460,7 +497,7 @@ function resolveStructureAsset(
   // Classify category — gates which assets can match
   const category = classifyAssetCategory(s.type, s.modelTags);
 
-  const asset = resolveAsset(keywords, category);
+  const asset = resolveAsset(keywords, category, usedModelIds);
   if (asset) {
     const scale = asset.defaultScale;
     return {

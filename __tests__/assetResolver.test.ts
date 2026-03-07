@@ -181,6 +181,24 @@ describe("resolveAssets", () => {
     expect(result.scene.structures[0].modelSrc).toBeUndefined();
   });
 
+  it("assigns different models to multiple structures of the same type", () => {
+    const bp = makeBlueprint([
+      makeStructure("house-1", "house"),
+      makeStructure("house-2", "house"),
+      makeStructure("house-3", "house"),
+    ]);
+    const result = resolveAssets(bp);
+    const urls = result.scene.structures.map((s) => s.modelSrc).filter(Boolean);
+    expect(urls.length).toBe(3);
+    // All should be from GCS bucket
+    for (const url of urls) {
+      expect(url).toContain("3dmodels_mml");
+    }
+    // At least 2 of 3 should be distinct (variety)
+    const unique = new Set(urls);
+    expect(unique.size).toBeGreaterThanOrEqual(2);
+  });
+
   it("skips light structures", () => {
     const bp = makeBlueprint([
       makeStructure("main-light", "light", {
