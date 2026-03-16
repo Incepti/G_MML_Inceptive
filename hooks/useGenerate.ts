@@ -110,9 +110,14 @@ export function useGenerate() {
         const mode = currentBlueprint ? "PATCH" : "NEW_SCENE";
 
         const mmlFile = project.files.find((f) => f.name === "scene.mml");
+        const currentMmlContent = mmlFile?.content || "";
+        // Pass current MML when there's no blueprint — user built the scene manually with library models
+        const needsMmlContext = !currentBlueprint && currentMmlContent.includes("<m-model");
 
         // 4. Call /api/ai
         // NEW_SCENE: stateless — no history, no MML, no previous context
+        //   Exception: if the scene was built with library models (no AI blueprint), pass current MML
+        //   so the AI knows what's already in the scene and can modify/clear it intelligently.
         // PATCH: send only current blueprint + user request
         const res = await fetch("/api/ai", {
           method: "POST",
@@ -122,8 +127,7 @@ export function useGenerate() {
             userMessage,
             currentBlueprint: currentBlueprint || undefined,
             projectMode: project.mode,
-            // No currentMml — Claude never sees generated MML
-            // No conversationHistory for NEW_SCENE — prevents context pollution
+            currentMml: needsMmlContext ? currentMmlContent : undefined,
           }),
         });
 

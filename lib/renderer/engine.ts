@@ -72,6 +72,8 @@ export class MMLRenderer {
   private raycaster: THREE.Raycaster;
   private pointer: THREE.Vector2;
   private canvas: HTMLCanvasElement;
+  // Tracks id→tag from the last successful load for incremental diff
+  private lastNodeTags: Map<string, string> = new Map();
 
   // Selection state
   private selectedObject: THREE.Object3D | null = null;
@@ -197,10 +199,6 @@ export class MMLRenderer {
 
   // ─── Load MML ──────────────────────────────────────────────────────────
   async loadMML(html: string): Promise<void> {
-    this.clearMMLObjects();
-    this.mixers = [];
-    this.attrAnims = [];
-
     let parsed: ParsedMML;
     try {
       parsed = parseMML(html);
@@ -208,6 +206,70 @@ export class MMLRenderer {
       console.error("[MMLRenderer] Parse error:", e);
       return;
     }
+
+    // Build flat id→tag map and parentId map from the new parsed tree
+    const newTags = new Map<string, string>();
+    const flattenForDiff = (nodes: MMLNode[], _parentId: string | null) => {
+      for (const node of nodes) {
+        if (node.tag === "m-attr-anim") continue;
+        const id = node.attributes["id"];
+        if (id) newTags.set(id, node.tag);
+        flattenForDiff(node.children, id ?? _parentId);
+      }
+    };
+    flattenForDiff(parsed.nodes, null);
+
+    // Determine if this is append-only vs structural change
+    const existingIds = new Set([...this.objectMap.keys()].filter((k) => k !== "__mml_root__"));
+    let appendOnly = existingIds.size > 0;
+    if (appendOnly) {
+      for (const id of existingIds) {
+        // Removal or tag change → full rebuild
+        if (!newTags.has(id) || newTags.get(id) !== this.lastNodeTags.get(id)) {
+          appendOnly = false;
+          break;
+        }
+      }
+    }
+
+    if (appendOnly) {
+      // Count how many genuinely new ids exist
+      const addedIds = [...newTags.keys()].filter((id) => !existingIds.has(id));
+
+      if (addedIds.length > 0) {
+        // Incremental: only build nodes whose id didn't previously exist.
+        // Attribute changes to existing nodes (color, size, etc.) are NOT handled here —
+        // they require a full rebuild via the code-editor path.
+        const root = this.objectMap.get("__mml_root__") as THREE.Group;
+        if (root) {
+          const buildNewNodes = async (nodes: MMLNode[], parent: THREE.Object3D) => {
+            for (const node of nodes) {
+              if (node.tag === "m-attr-anim") continue;
+              const id = node.attributes["id"];
+              if (id && existingIds.has(id)) {
+                // Existing element — recurse into children to catch any new nested nodes
+                const existingObj = this.objectMap.get(id);
+                if (existingObj) await buildNewNodes(node.children, existingObj);
+              } else {
+                // New element — build it (also builds its children via buildObject)
+                await this.buildObject(node, parent);
+              }
+            }
+          };
+          await buildNewNodes(parsed.nodes, root);
+          this.lastNodeTags = newTags;
+          return;
+        }
+      }
+      // No new ids (attribute-only change or transform-only patch) — fall through to full rebuild
+      // Note: ThreeViewport's isTransformPatch flag skips loadMML entirely for gizmo-only changes,
+      // so full rebuild here only triggers for real attribute edits from the code editor.
+    }
+
+    // Full rebuild
+    this.clearMMLObjects();
+    this.mixers = [];
+    this.attrAnims = [];
 
     const root = new THREE.Group();
     root.name = "__mml_root__";
@@ -217,6 +279,7 @@ export class MMLRenderer {
     for (const node of parsed.nodes) {
       await this.buildObject(node, root);
     }
+    this.lastNodeTags = newTags;
   }
 
   private clearMMLObjects() {

@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { mode, userMessage, currentBlueprint, projectMode } = parsed.data;
+  const { mode, userMessage, currentBlueprint, currentMml, projectMode } = parsed.data;
 
   try {
     const anthropic = getAnthropicClient();
@@ -129,7 +129,12 @@ export async function POST(req: NextRequest) {
       }
 
       // Clean, stateless user message — NO history, NO MML
-      userContent = `USER REQUEST: ${userMessage}\n\nReturn a NEW_SCENE response as valid JSON. No markdown.`;
+      // Exception: if the scene has library-inserted models, include current MML as context
+      userContent = `USER REQUEST: ${userMessage}`;
+      if (currentMml) {
+        userContent += `\n\nCURRENT SCENE (models were manually added from library — preserve or modify as requested):\n${currentMml}`;
+      }
+      userContent += `\n\nReturn a NEW_SCENE response as valid JSON. No markdown.`;
       messages.push({ role: "user", content: userContent });
     }
 

@@ -67,6 +67,9 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
   // Flushed to the MML file 150 ms after the last change.
   const pendingTransforms = useRef<Map<string, Transform9>>(new Map());
   const transformSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // When true, the next mmlHtml change was caused by a transform patch — skip loadMML
+  // because the Three.js gizmo already applied the positions visually.
+  const isTransformPatch = useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +126,8 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
             patched = patchMmlTransform(patched, elemId, t);
           }
           pendingTransforms.current.clear();
+          // Mark this as a transform-only patch so the mmlHtml effect skips loadMML
+          isTransformPatch.current = true;
           state.updateFileContent(proj.id, mmlFile.id, patched);
         }, 150);
       });
@@ -154,6 +159,12 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
   // a full scene rebuild on every character typed in the code editor.
   useEffect(() => {
     if (!mmlHtml.trim()) return;
+
+    // Transform-only patch: Three.js gizmo already applied positions — skip reload
+    if (isTransformPatch.current) {
+      isTransformPatch.current = false;
+      return;
+    }
 
     if (loadDebounceRef.current) clearTimeout(loadDebounceRef.current);
 
