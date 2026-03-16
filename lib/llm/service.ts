@@ -82,7 +82,8 @@ function buildDeterministicAssetId(prompt: string, index: number): string {
 }
 
 // ─── Strip m-attr-anim when user didn't ask for animation ────────────────
-const ANIMATION_KEYWORDS = /\b(animat|mov|rotat|spin|orbit|bounce|float|pulse|glow|flicker|wave|sway|oscillat|dynamic|motion)\w*/i;
+// Scene types that are naturally animated — fire, water, magic, weather, etc.
+const ANIMATION_KEYWORDS = /\b(animat|mov|rotat|spin|orbit|bounce|float|pulse|glow|flicker|wave|sway|oscillat|dynamic|motion|fire|flame|torch|campfire|bonfire|candle|lantern|waterfall|fountain|ocean|sea|lake|river|stream|lava|volcano|wind|storm|rain|snow|magic|portal|vortex|galaxy|nebula|star|twinkle|ripple|flow|electric|neon|blink|breathe|living|alive|flag|banner|smoke|particle|energy|spell)\w*/i;
 
 function userWantsAnimation(prompt: string): boolean {
   return ANIMATION_KEYWORDS.test(prompt);
@@ -144,8 +145,12 @@ function normalizeSuccess(
   // ── Server-side audit pipeline (Step 5) ──
   let finalHtml = parsed.mmlHtml;
 
-  // 1. Strip animations if user didn't ask for them
-  if (!userWantsAnimation(req.prompt)) {
+  // 1. Only strip animations if user explicitly asked for static/no animation
+  // The system prompt's ANIMATION POLICY already bans m-attr-anim by default.
+  // Double-stripping was removing valid ambient animations from naturally
+  // animated scenes (fire, water, magic, etc.)
+  const userExplicitlyWantsStatic = /\b(static|no[\s-]anim|without[\s-]anim|still|frozen|snapshot|no[\s-]movement)\b/i.test(req.prompt);
+  if (userExplicitlyWantsStatic) {
     finalHtml = stripAttrAnim(finalHtml);
   }
 
@@ -192,7 +197,76 @@ function buildStaticDeterministicScene(
     modelMarkup = `<m-model id="primary-model" src="${chosen.url}" x="0" y="0" z="0" rx="0" ry="0" rz="0"></m-model>`;
     modelCount = 1;
   } else {
-    modelMarkup = `<m-cube id="fallback-cube" x="0" y="0.5" z="0" width="1" height="1" depth="1" color="#888888"></m-cube>`;
+    // Rich primitive fallback — build a proper shrine-style structure
+    // using the 3-layer hierarchy from Final Brain V3
+    const seedHex2 = fnv1a(req.prompt + "GEEZ-OTHERSIDE-MML-ALPHA-V1-FALLBACK");
+    const rng2 = createSeededRng(parseInt(seedHex2.slice(0, 8), 16) >>> 0);
+
+    // Pick a deterministic accent color from the prompt seed
+    const accentColors = ["#7c6ef5", "#e879a0", "#3dd68c", "#f59e0b", "#60a5fa", "#f87171"];
+    const accentIdx = Math.floor(rng2() * accentColors.length);
+    const accent = accentColors[accentIdx];
+    const accentDark = accentColors[(accentIdx + 3) % accentColors.length];
+
+    modelMarkup = `<m-group id="fallback-shrine">
+    <!-- Base platform layers -->
+    <m-cylinder id="base-outer" x="0" y="0.05" z="0" radius="3.5" height="0.1" color="#1a1a2e" opacity="0.9"/>
+    <m-cylinder id="base-ring" x="0" y="0.06" z="0" radius="2.8" height="0.08" color="${accent}" opacity="0.3"/>
+    <m-cylinder id="base-mid" x="0" y="0.12" z="0" radius="2.2" height="0.12" color="#16213e"/>
+    <m-cylinder id="base-inner" x="0" y="0.2" z="0" radius="1.5" height="0.15" color="#0f3460"/>
+    <m-cylinder id="pedestal" x="0" y="0.5" z="0" radius="0.7" height="0.7" color="#1a1a2e"/>
+
+    <!-- Central monolith — 3-layer construction -->
+    <m-group id="monolith" x="0" y="0" z="0">
+      <m-cube id="mono-base" x="0" y="1.2" z="0" width="0.9" height="1.8" depth="0.9" color="#0a0a1a" metalness="0.6" roughness="0.3"/>
+      <m-cube id="mono-mid" x="0" y="2.6" z="0" width="0.72" height="1.5" depth="0.72" color="#0d0d20" metalness="0.7" roughness="0.2"/>
+      <m-cube id="mono-top" x="0" y="3.8" z="0" width="0.5" height="0.9" depth="0.5" color="#111128" metalness="0.8" roughness="0.15"/>
+      <m-sphere id="mono-orb" x="0" y="4.6" z="0" radius="0.28" color="${accent}" emissive="${accent}" emissive-intensity="1.2" opacity="0.95"/>
+      <!-- Edge trim lines -->
+      <m-cube id="trim-n" x="0" y="2.2" z="-0.46" width="0.06" height="3.4" depth="0.06" color="${accent}" emissive="${accent}" emissive-intensity="0.6" opacity="0.8"/>
+      <m-cube id="trim-s" x="0" y="2.2" z="0.46" width="0.06" height="3.4" depth="0.06" color="${accent}" emissive="${accent}" emissive-intensity="0.6" opacity="0.8"/>
+      <m-cube id="trim-e" x="0.46" y="2.2" z="0" width="0.06" height="3.4" depth="0.06" color="${accent}" emissive="${accent}" emissive-intensity="0.6" opacity="0.8"/>
+      <m-cube id="trim-w" x="-0.46" y="2.2" z="0" width="0.06" height="3.4" depth="0.06" color="${accent}" emissive="${accent}" emissive-intensity="0.6" opacity="0.8"/>
+    </m-group>
+
+    <!-- Orbital rings -->
+    <m-group id="ring-h" x="0" y="2.8" z="0">
+      <m-cylinder id="ring-h-body" x="0" y="0" z="0" radius="1.6" height="0.06" color="${accent}" opacity="0.5" metalness="0.9"/>
+    </m-group>
+    <m-group id="ring-v1" x="0" y="2.8" z="0" rx="90">
+      <m-cylinder id="ring-v1-body" x="0" y="0" z="0" radius="1.6" height="0.06" color="${accentDark}" opacity="0.4" metalness="0.9"/>
+    </m-group>
+    <m-group id="ring-v2" x="0" y="2.8" z="0" rx="90" ry="60">
+      <m-cylinder id="ring-v2-body" x="0" y="0" z="0" radius="1.6" height="0.06" color="${accent}" opacity="0.35" metalness="0.9"/>
+    </m-group>
+
+    <!-- Corner sentinel pillars -->
+    <m-group id="pillar-ne" x="1.8" y="0" z="-1.8">
+      <m-cylinder id="p-ne-base" x="0" y="0.2" z="0" radius="0.18" height="0.4" color="#0f3460"/>
+      <m-cylinder id="p-ne-shaft" x="0" y="1.2" z="0" radius="0.1" height="2.0" color="#1a1a2e" metalness="0.5"/>
+      <m-sphere id="p-ne-top" x="0" y="2.4" z="0" radius="0.14" color="${accent}" emissive="${accent}" emissive-intensity="0.9"/>
+    </m-group>
+    <m-group id="pillar-nw" x="-1.8" y="0" z="-1.8">
+      <m-cylinder id="p-nw-base" x="0" y="0.2" z="0" radius="0.18" height="0.4" color="#0f3460"/>
+      <m-cylinder id="p-nw-shaft" x="0" y="1.2" z="0" radius="0.1" height="2.0" color="#1a1a2e" metalness="0.5"/>
+      <m-sphere id="p-nw-top" x="0" y="2.4" z="0" radius="0.14" color="${accentDark}" emissive="${accentDark}" emissive-intensity="0.9"/>
+    </m-group>
+    <m-group id="pillar-se" x="1.8" y="0" z="1.8">
+      <m-cylinder id="p-se-base" x="0" y="0.2" z="0" radius="0.18" height="0.4" color="#0f3460"/>
+      <m-cylinder id="p-se-shaft" x="0" y="1.2" z="0" radius="0.1" height="2.0" color="#1a1a2e" metalness="0.5"/>
+      <m-sphere id="p-se-top" x="0" y="2.4" z="0" radius="0.14" color="${accent}" emissive="${accent}" emissive-intensity="0.9"/>
+    </m-group>
+    <m-group id="pillar-sw" x="-1.8" y="0" z="1.8">
+      <m-cylinder id="p-sw-base" x="0" y="0.2" z="0" radius="0.18" height="0.4" color="#0f3460"/>
+      <m-cylinder id="p-sw-shaft" x="0" y="1.2" z="0" radius="0.1" height="2.0" color="#1a1a2e" metalness="0.5"/>
+      <m-sphere id="p-sw-top" x="0" y="2.4" z="0" radius="0.14" color="${accentDark}" emissive="${accentDark}" emissive-intensity="0.9"/>
+    </m-group>
+
+    <!-- Lighting setup -->
+    <m-light id="key" type="point" x="3" y="5" z="2" color="#ffffff" intensity="1.2"/>
+    <m-light id="accent-fill" type="point" x="-3" y="3" z="-2" color="${accent}" intensity="0.8"/>
+    <m-light id="rim" type="point" x="0" y="1" z="-4" color="${accentDark}" intensity="0.5"/>
+  </m-group>`;
     modelCount = 0;
   }
 
@@ -498,8 +572,16 @@ ENFORCEMENT RULES:
 - Scene MUST start with a root <m-group>
 - No ground plane or floor (environment provides one)
 - For m-model src: ONLY use VERIFIED_ASSET_CATALOG URLs or primitives. NEVER fabricate URLs.
-- Build EXTREMELY DETAILED scenes: 30-50+ elements, every object composed from multiple primitives
-- Use varied colors, metalness, roughness, opacity for realism. Use 3-5 lights minimum.
+- Follow the 3-LAYER hierarchy from your Creative Director Mandate
+- MINIMUM element counts: simple object=12+, medium scene=50+, large scene=100+
+- Use the 9-zone blueprint grid to organize all structures spatially
+- Every object: structure layer + functional layer + detail layer = minimum 5 children
+- Color palette: pick 4-6 colors before building, use intentionally
+- Lighting: minimum 3 lights (key + fill + rim) placed with artistic purpose
+- metalness + roughness defines material feel: metal=0.8/0.2, stone=0.0/0.9, wood=0.0/0.8
+- Use 3-6 lights minimum, each serving a purpose (key, fill, rim, accent, atmosphere)
+- Environmental storytelling: add 3-5 detail elements that answer "what happened here?"
+- Phase-shift any animations: use varied durations (e.g. 3000ms, 3700ms, 4300ms) to avoid sync
 
 BEFORE returning your JSON, audit the code: verify no forbidden tags, no forbidden attributes, correct m-label syntax, correct m-attr-anim syntax, light count ≤8, root m-group present.
 
@@ -569,7 +651,7 @@ export async function generateMML(req: GenerateRequest): Promise<GenerateResult>
       model: targetModel,
       system: systemPrompt,
       messages,
-      temperature: 0.3,
+      temperature: 0.82,
       max_tokens: 16384,
     });
     const textBlock = response.content.find((b) => b.type === "text");
