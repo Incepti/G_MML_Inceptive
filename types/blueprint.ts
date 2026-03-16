@@ -61,7 +61,7 @@ export type StructureType = z.infer<typeof StructureTypeEnum>;
 // Define the base structure without children for recursion
 const BaseStructureSchema = z.object({
   id: z.string(),
-  type: StructureTypeEnum,
+  type: StructureTypeEnum.default("custom"),
   zone: ZoneEnum.optional(),
   transform: TransformSchema.default({}),
   geometry: GeometrySchema.optional(),

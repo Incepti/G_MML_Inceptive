@@ -269,6 +269,7 @@ USE MODELS (modelTags) for all recognizable objects with real-world counterparts
     sports car   → modelTags: ["sports car", "car", "vehicle", "fast"]
 
 NEVER set both geometry and modelTags on the same structure. Pick one.
+CHILDREN: every child structure MUST include a "type" field (e.g. "type":"prop" or "type":"custom"). Missing type = validation failure.
 `;
 
 // ─── OBJECT mode system prompt ──────────────────────────────────────────────
