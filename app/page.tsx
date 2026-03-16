@@ -11,7 +11,6 @@ import { MonacoEditorPanel } from "@/components/editor/MonacoEditor";
 import { DiffViewer } from "@/components/editor/DiffViewer";
 import { AssetLibrary } from "@/components/explorer/AssetLibrary";
 import type { EnvironmentAsset } from "@/lib/assets/environment-catalog";
-import { generateMml } from "@/lib/blueprint/generateMml";
 
 // SSR-disabled for Three.js
 const ThreeViewport = dynamic(
@@ -119,9 +118,8 @@ function SceneEditorPanel() {
   const handleInsertAsset = useCallback((asset: EnvironmentAsset) => {
     const snippet = `<m-model id="${asset.id}" src="${asset.modelUrl}" x="0" y="0" z="0" sx="${asset.defaultScale}" sy="${asset.defaultScale}" sz="${asset.defaultScale}"></m-model>`;
 
-    // Always read fresh state — the render-time closure is stale if the user
-    // moved objects via the viewport gizmo (which updates currentBlueprint but
-    // NOT project.files, so mmlFile.content would be outdated).
+    // Always read from the store directly — the render-time closure for
+    // mmlFile.content can be stale after viewport gizmo moves.
     const state = useEditorStore.getState();
     const freshProject = state.projects.find((p) => p.id === state.activeProjectId);
     const freshMmlFile = freshProject?.files.find((f) => f.name === "scene.mml");
@@ -131,19 +129,11 @@ function SceneEditorPanel() {
       return;
     }
 
-    // If viewport transforms are pending, sync the blueprint to MML first
-    // so we don't lose the user's position changes.
-    let baseContent = freshMmlFile.content;
-    if (state.viewportTransformDirty && state.currentBlueprint) {
-      baseContent = generateMml(state.currentBlueprint);
-      state.resyncFromBlueprint(baseContent);
-      state.setViewportTransformDirty(false);
-    }
-
-    const closeIdx = baseContent.lastIndexOf("</m-group>");
+    const base = freshMmlFile.content;
+    const closeIdx = base.lastIndexOf("</m-group>");
     const newContent = closeIdx !== -1
-      ? baseContent.slice(0, closeIdx) + "  " + snippet + "\n" + baseContent.slice(closeIdx)
-      : baseContent + "\n" + snippet;
+      ? base.slice(0, closeIdx) + "  " + snippet + "\n" + base.slice(closeIdx)
+      : base + "\n" + snippet;
     state.updateFileContent(freshProject.id, freshMmlFile.id, newContent);
   }, []);
 

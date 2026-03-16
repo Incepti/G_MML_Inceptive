@@ -14,11 +14,59 @@ interface ThreeViewportProps {
   mmlHtml: string;
 }
 
+type Transform9 = { x: number; y: number; z: number; rx: number; ry: number; rz: number; sx: number; sy: number; sz: number };
+
+/**
+ * Patch the transform attributes of a single element (by id) inside an MML string.
+ * Only writes non-default values (x=0, y=0, z=0, rx=0, ry=0, rz=0, sx=1, sy=1, sz=1 are omitted).
+ * Operates on the raw string so it works regardless of whether a blueprint exists.
+ */
+function patchMmlTransform(mml: string, id: string, t: Transform9): string {
+  const idStr = `id="${id}"`;
+  const pos = mml.indexOf(idStr);
+  if (pos === -1) return mml;
+
+  // Walk back to find the opening '<'
+  let start = pos;
+  while (start > 0 && mml[start] !== "<") start--;
+
+  // Walk forward to find the closing '>'
+  let end = pos;
+  while (end < mml.length && mml[end] !== ">") end++;
+
+  let tag = mml.slice(start, end + 1);
+
+  // Strip all existing transform attrs
+  for (const attr of ["x", "y", "z", "rx", "ry", "rz", "sx", "sy", "sz"]) {
+    tag = tag.replace(new RegExp(`\\s+${attr}="[^"]*"`, "g"), "");
+  }
+
+  // Build replacement attr string (skip defaults)
+  let ins = "";
+  if (t.x !== 0) ins += ` x="${+t.x.toFixed(3)}"`;
+  if (t.y !== 0) ins += ` y="${+t.y.toFixed(3)}"`;
+  if (t.z !== 0) ins += ` z="${+t.z.toFixed(3)}"`;
+  if (t.rx !== 0) ins += ` rx="${+t.rx.toFixed(1)}"`;
+  if (t.ry !== 0) ins += ` ry="${+t.ry.toFixed(1)}"`;
+  if (t.rz !== 0) ins += ` rz="${+t.rz.toFixed(1)}"`;
+  if (Math.abs(t.sx - 1) > 0.0001) ins += ` sx="${+t.sx.toFixed(4)}"`;
+  if (Math.abs(t.sy - 1) > 0.0001) ins += ` sy="${+t.sy.toFixed(4)}"`;
+  if (Math.abs(t.sz - 1) > 0.0001) ins += ` sz="${+t.sz.toFixed(4)}"`;
+
+  // Inject before closing >
+  const patched = tag.slice(0, -1) + ins + ">";
+  return mml.slice(0, start) + patched + mml.slice(end + 1);
+}
+
 export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<MMLRenderer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const loadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Accumulates gizmo transforms (fires every animation frame during drag).
+  // Flushed to the MML file 150 ms after the last change.
+  const pendingTransforms = useRef<Map<string, Transform9>>(new Map());
+  const transformSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,9 +99,32 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
         setSelectedObjectId(id);
       });
 
-      // Wire transform change callback
+      // Wire transform change callback.
+      // updateBlueprintTransform only works when an AI-generated blueprint exists.
+      // We ALSO patch the raw MML string directly so library-inserted models
+      // (which have no blueprint) keep their positions after being moved.
       renderer.setOnTransformChange((id, transform) => {
         updateBlueprintTransform(id, transform);
+
+        // Accumulate — the gizmo fires on every animation frame while dragging
+        pendingTransforms.current.set(id, transform);
+
+        // Debounce: write positions to MML file 150ms after drag stops
+        if (transformSyncTimer.current) clearTimeout(transformSyncTimer.current);
+        transformSyncTimer.current = setTimeout(() => {
+          if (pendingTransforms.current.size === 0) return;
+          const state = useEditorStore.getState();
+          const proj = state.projects.find((p) => p.id === state.activeProjectId);
+          const mmlFile = proj?.files.find((f) => f.name === "scene.mml");
+          if (!proj || !mmlFile) return;
+
+          let patched = mmlFile.content;
+          for (const [elemId, t] of pendingTransforms.current) {
+            patched = patchMmlTransform(patched, elemId, t);
+          }
+          pendingTransforms.current.clear();
+          state.updateFileContent(proj.id, mmlFile.id, patched);
+        }, 150);
       });
 
       renderer.start();
@@ -62,6 +133,7 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
     initRenderer().catch(console.error);
 
     return () => {
+      if (transformSyncTimer.current) clearTimeout(transformSyncTimer.current);
       rendererRef.current?.dispose();
       rendererRef.current = null;
     };
