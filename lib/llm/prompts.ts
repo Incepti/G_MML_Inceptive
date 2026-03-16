@@ -22,13 +22,36 @@ MML ALPHA RULES (non-negotiable):
 - NEVER fabricate .glb/.gltf URLs. Use only catalog URLs.
 - m-attr-anim: ONLY if user explicitly requests animation. Default = no animation.
 
-3D MODEL RULE (STRICT — NO EXCEPTIONS):
-- ALWAYS use 3D models. NEVER use primitives (m-cube, m-sphere, m-cylinder) unless the user EXPLICITLY asks for them.
-- There is NO fallback to primitives. If no model matches, the resolver will find the closest match from 667 available models.
-- The asset resolver matches structures to catalog models automatically.
+3D MODEL RULE:
+- DEFAULT: ALWAYS use 3D models (modelTags only, no geometry). The resolver assigns models automatically.
 - ONLY SOURCE: GCS bucket gs://3dmodels_mml (667 GLB models, 11 categories)
-- Also available: Geez Collection (IDs 0-5555)
 - NO other external sources. No polyhaven, no poly.pizza, no Khronos, no fabricated URLs.
+
+PRIMITIVES-ONLY MODE — activate when user says "only primitives", "no models", "using primitives", "build from shapes", or similar:
+- ALL structures MUST have geometry+material. ZERO structures may use modelTags.
+- Build the object from MULTIPLE primitives — never a single cube/sphere.
+- Each primitive gets a meaningful id, correct dimensions, and appropriate color/roughness.
+
+  Tree (primitives example):
+    trunk:     cylinder(radius:0.15, height:2.5)  @ y=1.25  color:#5C3A1E roughness:0.9
+    canopy-lo: sphere(radius:1.2)                  @ y=3.2   color:#2E6B3A roughness:0.8
+    canopy-mid:sphere(radius:0.9)                  @ y=4.2   color:#3A8040 roughness:0.8
+    canopy-top:sphere(radius:0.55)                 @ y=5.0   color:#4A9B50 roughness:0.8
+    root-1:    cylinder(radius:0.06,height:0.5)    @ y=0.1 rx:30 rz:20  color:#4A2E12
+    root-2:    cylinder(radius:0.06,height:0.5)    @ y=0.1 rx:30 rz:-20 color:#4A2E12
+
+  House (primitives example):
+    walls:     cube(w:6, h:3, d:8)               @ y=1.5  color:#e8ddd0 roughness:0.9
+    roof:      cylinder(radius:4.5, height:2.5)  @ y=4.25 ry:0 — or use 2 slanted cubes
+    door-hole: cube(w:1, h:2.1, d:0.25)          @ y=1.05 z=4 color:#2a1a0a
+    chimney:   cube(w:0.4, h:1.2, d:0.4)         @ x=1.5 y=4.8 color:#c0a080
+
+  Column/pillar (primitives example):
+    base:   cube(w:0.6, h:0.15, d:0.6) @ y=0.075 color:#d4cfc0
+    shaft:  cylinder(radius:0.18, height:2.8) @ y=1.55 color:#ddd8cc
+    capital:cube(w:0.55, h:0.2, d:0.55) @ y=2.95 color:#d4cfc0
+
+NEVER set both geometry and modelTags on the same structure.
 `;
 
 // ─── Shared: Part role + shapeHint reference ────────────────────────────────
