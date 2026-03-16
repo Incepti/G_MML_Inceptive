@@ -76,13 +76,30 @@ const STRUCTURE_FORMAT = `
 STRUCTURE FORMAT (for scene.structures):
 {
   "id": "unique-id",
-  "type": "wall|tower|building|room|door|window|prop|clockTower|light|fence|gate|roof|floor|pillar|arch|stair|bridge|tree|rock|water|lamp|bench|table|chair|sign|barrel|crate|vehicle|custom|furniture|machine|container|weapon|tool|creature|nature",
+  "type": "wall|tower|building|room|door|window|prop|clockTower|light|fence|gate|roof|floor|pillar|arch|stair|bridge|tree|rock|water|lamp|bench|table|chair|sign|barrel|crate|vehicle|custom|furniture|machine|container|weapon|tool|creature|nature|character|house|decoration|electronics|structure",
   "zone": "NW|N|NE|W|C|E|SW|S|SE",
   "transform": { "x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"sx":1,"sy":1,"sz":1 },
+  "modelTags": ["specific-object-name", "material", "style"],
   "lightProps": { "type":"point|directional|spot", "intensity":1, "color":"#ffffff", "distance":20 },
   "label": "optional — ONLY for actual text labels rendered via m-label (signs, nameplates). Do NOT set label on objects like chairs, trees, etc."
 }
-NOTE: Do NOT include geometry, material, or children on structures. The procedural engine generates those from the parts array.
+
+modelTags IS CRITICAL — this is how the 3D model picker knows exactly what object to place.
+Always include 2-4 specific tags describing the object. Examples:
+  wardrobe     → modelTags: ["wardrobe", "cabinet", "wooden", "storage"]
+  nightstand   → modelTags: ["nightstand", "bedside table", "drawer"]
+  office chair → modelTags: ["office chair", "chair", "desk", "swivel"]
+  refrigerator → modelTags: ["refrigerator", "fridge", "kitchen appliance"]
+  bookshelf    → modelTags: ["bookshelf", "shelves", "books", "wooden"]
+  tv unit      → modelTags: ["television", "tv stand", "monitor", "screen"]
+  floor lamp   → modelTags: ["floor lamp", "lamp", "standing light"]
+  potted plant → modelTags: ["plant", "potted", "indoor", "houseplant"]
+  kitchen sink → modelTags: ["sink", "basin", "kitchen"]
+  wall art     → modelTags: ["picture frame", "wall art", "painting", "decorative"]
+  oak tree     → modelTags: ["oak tree", "tree", "large", "deciduous"]
+  sports car   → modelTags: ["sports car", "car", "vehicle", "fast"]
+
+NOTE: Do NOT include geometry, material, or children on structures. The model picker uses modelTags to find the best matching 3D model from 667 available assets.
 `;
 
 // ─── OBJECT mode system prompt ──────────────────────────────────────────────
@@ -177,12 +194,18 @@ INDOOR ROOM SCALE: use sceneScale="small", ground width=12 height=10.
   Use id names that reflect only the object, NOT the room (e.g. id="wardrobe" not id="bedroom-wardrobe").
 
 bedroom (ground 12×10m, sceneScale=small):
-  NW(-4,-4): bookshelf + plant | N(0,-4): wall-art | NE(4,-4): wardrobe
-  W(-5,0): nightstand-left | C(0,0): bed | E(5,0): nightstand-right
-  SW(-4,4): floor-lamp | S(0,4): door | SE(4,4): desk + chair
-  + ceiling-light(0,3,0) + rug(0,0.01,1) + wall-art-2(4,2.5,-4)
+  NW(-4,-4): bookshelf[modelTags:bookshelf,shelves,books] + plant[modelTags:plant,potted,indoor]
+  N(0,-4,2.5): wall-art[modelTags:picture frame,wall art,painting]
+  NE(4,-4): wardrobe[modelTags:wardrobe,cabinet,wooden,storage]
+  W(-5,0): nightstand-left[modelTags:nightstand,bedside table,drawer]
+  C(0,0): bed[modelTags:bed,mattress,bedroom,single]
+  E(5,0): nightstand-right[modelTags:nightstand,bedside table,drawer]
+  SW(-4,4): floor-lamp[modelTags:floor lamp,lamp,standing light]
+  S(0,4): door[modelTags:door,wooden,entrance]
+  SE(4,4): desk[modelTags:desk,workspace,wooden] + chair[modelTags:chair,desk chair,wooden]
+  C(0,3,0): ceiling-light[type=light,point,warm]
+  C(0,0.01,1): rug[modelTags:rug,carpet,round,floor covering]
   types: furniture(bed,nightstand,wardrobe,desk,chair,bookshelf,rug), lamp, prop(wall_art,plant), door
-  IMPORTANT: give each structure a simple id like "wardrobe", "desk", "bookshelf" (NOT "bedroom-wardrobe")
 
 living_room (ground 14×12m, sceneScale=small):
   NW(-5,-5): bookshelf | N(0,-5): tv-unit | NE(5,-5): plant
