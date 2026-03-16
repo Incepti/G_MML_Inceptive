@@ -172,21 +172,38 @@ Corner zones → towers, sentinels. Edges → walls, gates. Center → courtyard
 
 ENVIRONMENT TEMPLATES — when the prompt matches, populate ALL required items:
 
-bedroom: bed(C) + nightstand×2(W/E) + wardrobe(NE) + desk+chair(SE) + bookshelf(NW) +
-  floor_lamp×2(SW/NE) + window(N) + rug(C) + wall_art×2(NW/NE) + plant(NW) + ceiling_light(C)
-  types: furniture(bed,nightstand,wardrobe,desk,chair,bookshelf,rug), lamp, prop(wall_art,plant), window, door
+INDOOR ROOM SCALE: use sceneScale="small", ground width=12 height=10.
+  All positions MUST be within ±5m of center (not ±20m). Furniture is 1-3m apart.
+  Use id names that reflect only the object, NOT the room (e.g. id="wardrobe" not id="bedroom-wardrobe").
 
-living_room: sofa(W) + armchair×2(E) + coffee_table(C) + tv_unit(N) + bookshelf(NW) +
-  floor_lamp×2(SW/NE) + rug(C) + wall_art×2 + plant×2(NW/NE) + window(N) + ceiling_light(C)
-  types: furniture(sofa,armchair,table,bookshelf,rug), machine(tv_unit), lamp, prop(wall_art,plant), window, door
+bedroom (ground 12×10m, sceneScale=small):
+  NW(-4,-4): bookshelf + plant | N(0,-4): wall-art | NE(4,-4): wardrobe
+  W(-5,0): nightstand-left | C(0,0): bed | E(5,0): nightstand-right
+  SW(-4,4): floor-lamp | S(0,4): door | SE(4,4): desk + chair
+  + ceiling-light(0,3,0) + rug(0,0.01,1) + wall-art-2(4,2.5,-4)
+  types: furniture(bed,nightstand,wardrobe,desk,chair,bookshelf,rug), lamp, prop(wall_art,plant), door
+  IMPORTANT: give each structure a simple id like "wardrobe", "desk", "bookshelf" (NOT "bedroom-wardrobe")
 
-kitchen: counter×3(N/W/E) + wall_cabinet×4 + sink(N) + stove(SE) +
-  refrigerator(SW) + kitchen_island(C) + bar_stool×2(C) + microwave(NE) + ceiling_light×2
+living_room (ground 14×12m, sceneScale=small):
+  NW(-5,-5): bookshelf | N(0,-5): tv-unit | NE(5,-5): plant
+  W(-6,0): sofa | C(0,0): coffee-table + rug | E(6,1): armchair
+  SW(-5,5): floor-lamp | S(0,5): door | SE(5,5): side-table + plant-2
+  + ceiling-light(0,3,0) + wall-art(-5,2.5,-5) + floor-lamp-2(5,-5,0)
+  types: furniture(sofa,armchair,table,bookshelf,rug), machine(tv-unit), lamp, prop(wall_art,plant), door
+
+kitchen (ground 12×10m, sceneScale=small):
+  NW(-5,-4): wall-cabinet-left | N(0,-4): sink | NE(5,-4): wall-cabinet-right
+  W(-5,0): counter-left | C(0,0): kitchen-island | E(5,0): counter-right
+  SW(-5,4): refrigerator | S(0,4): door | SE(5,4): stove
+  + wall-cabinet-nw(-4,-4,0) + wall-cabinet-ne(4,-4,0) + bar-stool-1(-1.5,0,0) + bar-stool-2(1.5,0,0) + microwave(5,-4,0)
   types: furniture(counter,cabinet,stool,island), machine(stove,refrigerator,sink,microwave), lamp
 
-office_study: desk(C) + office_chair(C) + bookshelf×2(NW/NE) + monitor(C) +
-  filing_cabinet(W) + floor_lamp(SW) + desk_lamp(C) + plant(SE) + wall_art(N) + ceiling_light(C)
-  types: furniture(desk,chair,bookshelf,cabinet), machine(monitor), lamp, prop(plant,wall_art), window, door
+office_study (ground 10×10m, sceneScale=small):
+  NW(-4,-4): bookshelf-left | N(0,-4): wall-art | NE(4,-4): bookshelf-right
+  W(-4,0): filing-cabinet | C(0,0): desk | C(2,0,2): office-chair
+  SW(-4,4): plant | S(0,4): door | SE(4,4): floor-lamp
+  + ceiling-light(0,3,0) + desk-lamp(0.5,0.8,0) + monitor(0,0.8,-0.3)
+  types: furniture(desk,chair,bookshelf,cabinet), machine(monitor), lamp, prop(plant,wall_art), door
 
 RULES:
 - Each structure needs a type, zone, and transform (position in world coordinates).

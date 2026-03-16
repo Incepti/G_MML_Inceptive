@@ -140,6 +140,7 @@ const TYPE_SEARCH_TAGS: Record<string, string[]> = {
   bookshelf: ["bookshelf", "shelves", "wooden"],
   dresser: ["commode", "dresser", "drawer"],
   nightstand: ["nightstand", "bedside table"],
+  wardrobe: ["cabinet", "wardrobe", "armoire", "closet", "storage", "wooden"],
   drawer: ["drawer", "cabinet", "storage"],
   // vehicles
   car: ["car", "automobile", "sedan", "vehicle"],
@@ -178,6 +179,7 @@ const TYPE_SEARCH_TAGS: Record<string, string[]> = {
   castle: ["castle", "medieval", "fortress"],
   wall: ["wall", "wooden", "barrier", "stone wall"],
   door: ["door", "entrance", "wooden"],
+  window: ["window", "frame", "glass"],
   gate: ["gate", "iron gate", "entrance"],
   fence: ["fence", "chain link", "barrier"],
   tent: ["tent", "camping", "shelter"],
@@ -386,7 +388,8 @@ export function resolveAsset(
         continue;
       }
       // Fuzzy: keyword contains a tag (tag is substring of keyword)
-      if (asset.tags.some((t) => t.length > 2 && kw.includes(t) && kw !== t)) {
+      // Require tag length >= 4 to prevent short tags like "war" matching "wardrobe"
+      if (asset.tags.some((t) => t.length >= 4 && kw.includes(t) && kw !== t)) {
         score += 3;
         continue;
       }
@@ -465,12 +468,25 @@ function resolveStructureAsset(
     keywords.push(...TYPE_SEARCH_TAGS[s.type]);
   }
 
+  // Context words from room/scene names — exclude these from id-word splitting
+  // to prevent "bedroom-window" → keyword "bedroom" → matching bed models
+  const CONTEXT_WORDS = new Set([
+    "bedroom", "living", "kitchen", "office", "room", "zone", "main", "area",
+    "scene", "left", "right", "front", "back", "top", "bottom", "upper", "lower",
+    "inner", "outer", "north", "south", "east", "west", "center", "corner",
+    "study", "dining", "hall", "entry", "guest", "master", "floor", "ceiling",
+    "bedside", "side", "cozy", "small", "large", "big", "little",
+  ]);
+
   // Add the structure's own type and id as potential exact-match terms
   keywords.push(s.type);
   if (s.id !== s.type) {
     keywords.push(s.id);
     // Split id words: "tree-1" → ["tree"], "coffee-table-2" → ["coffee", "table"]
-    const idWords = s.id.split(/[\s\-_]+/).filter((w) => w.length > 2 && !/^\d+$/.test(w));
+    // Exclude context/environment words that cause cross-matching (e.g. "bedroom" → bed)
+    const idWords = s.id
+      .split(/[\s\-_]+/)
+      .filter((w) => w.length > 2 && !/^\d+$/.test(w) && !CONTEXT_WORDS.has(w.toLowerCase()));
     keywords.push(...idWords);
   }
 
