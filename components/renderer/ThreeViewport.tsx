@@ -12,36 +12,32 @@ import { generateMml } from "@/lib/blueprint/generateMml";
 
 interface ThreeViewportProps {
   mmlHtml: string;
+  isPlayMode?: boolean;
 }
 
-type Transform9 = { x: number; y: number; z: number; rx: number; ry: number; rz: number; sx: number; sy: number; sz: number };
+type Transform9 = {
+  x: number; y: number; z: number;
+  rx: number; ry: number; rz: number;
+  sx: number; sy: number; sz: number;
+};
 
-/**
- * Patch the transform attributes of a single element (by id) inside an MML string.
- * Only writes non-default values (x=0, y=0, z=0, rx=0, ry=0, rz=0, sx=1, sy=1, sz=1 are omitted).
- * Operates on the raw string so it works regardless of whether a blueprint exists.
- */
 function patchMmlTransform(mml: string, id: string, t: Transform9): string {
   const idStr = `id="${id}"`;
   const pos = mml.indexOf(idStr);
   if (pos === -1) return mml;
 
-  // Walk back to find the opening '<'
   let start = pos;
   while (start > 0 && mml[start] !== "<") start--;
 
-  // Walk forward to find the closing '>'
   let end = pos;
   while (end < mml.length && mml[end] !== ">") end++;
 
   let tag = mml.slice(start, end + 1);
 
-  // Strip all existing transform attrs
   for (const attr of ["x", "y", "z", "rx", "ry", "rz", "sx", "sy", "sz"]) {
     tag = tag.replace(new RegExp(`\\s+${attr}="[^"]*"`, "g"), "");
   }
 
-  // Build replacement attr string (skip defaults)
   let ins = "";
   if (t.x !== 0) ins += ` x="${+t.x.toFixed(3)}"`;
   if (t.y !== 0) ins += ` y="${+t.y.toFixed(3)}"`;
@@ -53,23 +49,18 @@ function patchMmlTransform(mml: string, id: string, t: Transform9): string {
   if (Math.abs(t.sy - 1) > 0.0001) ins += ` sy="${+t.sy.toFixed(4)}"`;
   if (Math.abs(t.sz - 1) > 0.0001) ins += ` sz="${+t.sz.toFixed(4)}"`;
 
-  // Inject before closing >
   const patched = tag.slice(0, -1) + ins + ">";
   return mml.slice(0, start) + patched + mml.slice(end + 1);
 }
 
-export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
+export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<MMLRenderer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const loadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Accumulates gizmo transforms (fires every animation frame during drag).
-  // Flushed to the MML file 150 ms after the last change.
   const pendingTransforms = useRef<Map<string, Transform9>>(new Map());
   const transformSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // When true, the next mmlHtml change was caused by a transform patch — skip loadMML
-  // because the Three.js gizmo already applied the positions visually.
-  const isTransformPatch = useRef(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +70,8 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
     transformMode,
     viewportTransformDirty,
     currentBlueprint,
+    mmlVersion,
+    transformPatchVersion,
     setSelectedObjectId,
     setTransformMode,
     setViewportTransformDirty,
@@ -86,7 +79,10 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
     resyncFromBlueprint,
   } = useEditorStore();
 
-  // Init renderer
+  // Track previous transformPatchVersion to detect transform-only updates
+  const prevTransformPatchVersion = useRef(transformPatchVersion);
+
+  // Init renderer (scene viewport only — play mode uses a read-only renderer)
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -97,40 +93,35 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
       renderer = new MMLRenderer(canvasRef.current!, rendererOptions);
       rendererRef.current = renderer;
 
-      // Wire selection callback
-      renderer.setOnSelectionChange((id) => {
-        setSelectedObjectId(id);
-      });
+      if (!isPlayMode) {
+        renderer.setOnSelectionChange((id) => {
+          setSelectedObjectId(id);
+        });
 
-      // Wire transform change callback.
-      // updateBlueprintTransform only works when an AI-generated blueprint exists.
-      // We ALSO patch the raw MML string directly so library-inserted models
-      // (which have no blueprint) keep their positions after being moved.
-      renderer.setOnTransformChange((id, transform) => {
-        updateBlueprintTransform(id, transform);
+        renderer.setOnTransformChange((id, transform) => {
+          updateBlueprintTransform(id, transform);
+          pendingTransforms.current.set(id, transform);
 
-        // Accumulate — the gizmo fires on every animation frame while dragging
-        pendingTransforms.current.set(id, transform);
+          if (transformSyncTimer.current) clearTimeout(transformSyncTimer.current);
+          transformSyncTimer.current = setTimeout(() => {
+            if (pendingTransforms.current.size === 0) return;
+            const state = useEditorStore.getState();
+            const proj = state.projects.find((p) => p.id === state.activeProjectId);
+            const mmlFile = proj?.files.find((f) => f.name === "scene.mml");
+            if (!proj || !mmlFile) return;
 
-        // Debounce: write positions to MML file 150ms after drag stops
-        if (transformSyncTimer.current) clearTimeout(transformSyncTimer.current);
-        transformSyncTimer.current = setTimeout(() => {
-          if (pendingTransforms.current.size === 0) return;
-          const state = useEditorStore.getState();
-          const proj = state.projects.find((p) => p.id === state.activeProjectId);
-          const mmlFile = proj?.files.find((f) => f.name === "scene.mml");
-          if (!proj || !mmlFile) return;
+            let patched = mmlFile.content;
+            for (const [elemId, t] of pendingTransforms.current) {
+              patched = patchMmlTransform(patched, elemId, t);
+            }
+            pendingTransforms.current.clear();
 
-          let patched = mmlFile.content;
-          for (const [elemId, t] of pendingTransforms.current) {
-            patched = patchMmlTransform(patched, elemId, t);
-          }
-          pendingTransforms.current.clear();
-          // Mark this as a transform-only patch so the mmlHtml effect skips loadMML
-          isTransformPatch.current = true;
-          state.updateFileContent(proj.id, mmlFile.id, patched);
-        }, 150);
-      });
+            // isTransformPatch=true → increments transformPatchVersion so viewports
+            // can detect this was a gizmo-only change and skip loadMML
+            state.updateFileContent(proj.id, mmlFile.id, patched, true);
+          }, 150);
+        });
+      }
 
       renderer.start();
     };
@@ -145,26 +136,28 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update renderer options
   useEffect(() => {
     rendererRef.current?.updateOptions(rendererOptions);
   }, [rendererOptions]);
 
-  // Sync transform mode to renderer
   useEffect(() => {
-    rendererRef.current?.setTransformMode(transformMode);
-  }, [transformMode]);
+    if (!isPlayMode) {
+      rendererRef.current?.setTransformMode(transformMode);
+    }
+  }, [transformMode, isPlayMode]);
 
-  // Load MML when it changes — debounced so rapid keystrokes don't trigger
-  // a full scene rebuild on every character typed in the code editor.
+  // Load MML — skip when the version bump was caused by a gizmo transform patch
   useEffect(() => {
     if (!mmlHtml.trim()) return;
 
-    // Transform-only patch: Three.js gizmo already applied positions — skip reload
-    if (isTransformPatch.current) {
-      isTransformPatch.current = false;
-      return;
-    }
+    // Compare transformPatchVersion: if it changed, this mmlVersion was from a gizmo drag.
+    // Three.js already has correct positions — no need to reload.
+    const isTransformOnlyUpdate =
+      transformPatchVersion !== prevTransformPatchVersion.current;
+
+    prevTransformPatchVersion.current = transformPatchVersion;
+
+    if (isTransformOnlyUpdate) return;
 
     if (loadDebounceRef.current) clearTimeout(loadDebounceRef.current);
 
@@ -181,35 +174,30 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
     return () => {
       if (loadDebounceRef.current) clearTimeout(loadDebounceRef.current);
     };
-  }, [mmlHtml]);
+  }, [mmlHtml, mmlVersion, transformPatchVersion]);
 
   // Resize observer
   useEffect(() => {
     if (!containerRef.current) return;
-
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         rendererRef.current?.resize(width, height);
       }
     });
-
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
 
-  // Click handler for object picking
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    rendererRef.current?.handleClick(e.nativeEvent);
-  }, []);
+    if (!isPlayMode) rendererRef.current?.handleClick(e.nativeEvent);
+  }, [isPlayMode]);
 
-  // Keyboard shortcuts for transform modes
   useEffect(() => {
+    if (isPlayMode) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle if canvas is focused or no input is focused
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-
       switch (e.key.toLowerCase()) {
         case "w": setTransformMode("translate"); break;
         case "e": setTransformMode("rotate"); break;
@@ -221,12 +209,10 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
         }
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [setTransformMode, setSelectedObjectId]);
+  }, [setTransformMode, setSelectedObjectId, isPlayMode]);
 
-  // "Update MML" — regenerate from modified blueprint
   const handleUpdateMml = useCallback(() => {
     if (!currentBlueprint) return;
     const newMml = generateMml(currentBlueprint);
@@ -258,22 +244,21 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
         onClick={handleCanvasClick}
       />
 
-      {/* Transform mode toolbar */}
-      <div className="absolute top-2 left-3 flex gap-1">
-        {modeBtn("translate", "Move", "W")}
-        {modeBtn("rotate", "Rotate", "E")}
-        {modeBtn("scale", "Scale", "R")}
-      </div>
+      {!isPlayMode && (
+        <div className="absolute top-2 left-3 flex gap-1">
+          {modeBtn("translate", "Move", "W")}
+          {modeBtn("rotate", "Rotate", "E")}
+          {modeBtn("scale", "Scale", "R")}
+        </div>
+      )}
 
-      {/* Selected object indicator */}
-      {selectedObjectId && (
+      {!isPlayMode && selectedObjectId && (
         <div className="absolute bottom-12 left-3 text-xs text-blue-300 bg-black/50 px-2 py-1 rounded">
           Selected: <span className="font-mono">{selectedObjectId}</span>
         </div>
       )}
 
-      {/* Update MML button (when transforms are dirty) */}
-      {viewportTransformDirty && (
+      {!isPlayMode && viewportTransformDirty && (
         <button
           onClick={handleUpdateMml}
           className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded shadow-lg"
@@ -297,9 +282,8 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
         </div>
       )}
 
-      {/* Viewport label */}
       <div className="absolute top-2 right-3 text-xs text-editor-text-muted select-none pointer-events-none">
-        3D Viewport · Three.js
+        {isPlayMode ? "Play Preview" : "3D Viewport · Three.js"}
       </div>
     </div>
   );

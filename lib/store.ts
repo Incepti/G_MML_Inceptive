@@ -92,6 +92,10 @@ interface EditorState {
   selectedObjectId: string | null;
   transformMode: "translate" | "rotate" | "scale";
   viewportTransformDirty: boolean;
+
+  // MML version counters for reliable transform-patch detection
+  mmlVersion: number;
+  transformPatchVersion: number;
 }
 
 interface EditorActions {
@@ -99,7 +103,7 @@ interface EditorActions {
   createProject: (name: string, mode: "static" | "dynamic") => Project;
   setActiveProject: (id: string | null) => void;
   setActiveFile: (id: string | null) => void;
-  updateFileContent: (projectId: string, fileId: string, content: string) => void;
+  updateFileContent: (projectId: string, fileId: string, content: string, isTransformPatch?: boolean) => void;
   addAssetToProject: (projectId: string, asset: AssetManifestEntry) => void;
   setProjectValidation: (projectId: string, report: ValidationReport) => void;
   loadProjectsFromServer: (projects: Project[]) => void;
@@ -215,6 +219,10 @@ export const useEditorStore = create<StoreState>()(
       transformMode: "translate",
       viewportTransformDirty: false,
 
+      // MML version counters
+      mmlVersion: 0,
+      transformPatchVersion: 0,
+
       // ── Project Actions ───────────────────────────────────────────────
       createProject: (name, mode) => {
         const now = new Date().toISOString();
@@ -276,8 +284,12 @@ export const useEditorStore = create<StoreState>()(
 
       setActiveFile: (id) => set({ activeFileId: id }),
 
-      updateFileContent: (projectId, fileId, content) =>
+      updateFileContent: (projectId, fileId, content, isTransformPatch = false) =>
         set((s) => ({
+          mmlVersion: s.mmlVersion + 1,
+          transformPatchVersion: isTransformPatch
+            ? s.transformPatchVersion + 1
+            : s.transformPatchVersion,
           projects: s.projects.map((p) =>
             p.id === projectId
               ? {

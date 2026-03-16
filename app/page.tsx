@@ -108,12 +108,13 @@ function Titlebar() {
 
 // ─── Scene Editor Panel (top-left) ────────────────────────────────────────
 function SceneEditorPanel() {
-  const { getActiveProject, updateFileContent } = useEditorStore();
   const [leftTab, setLeftTab] = useState<"scene" | "library">("scene");
 
-  const project = getActiveProject();
-  const mmlFile = project?.files.find((f) => f.name === "scene.mml");
-  const mml = mmlFile?.content || "";
+  // Reactive Zustand selector — re-renders whenever MML content changes
+  const mml = useEditorStore((s) => {
+    const project = s.projects.find((p) => p.id === s.activeProjectId);
+    return project?.files.find((f) => f.name === "scene.mml")?.content || "";
+  });
 
   const handleInsertAsset = useCallback((asset: EnvironmentAsset) => {
     const snippet = `<m-model id="${asset.id}" src="${asset.modelUrl}" x="0" y="0" z="0" sx="${asset.defaultScale}" sy="${asset.defaultScale}" sz="${asset.defaultScale}"></m-model>`;
@@ -173,10 +174,21 @@ function SceneEditorPanel() {
 
 // ─── Play Viewer Panel (top-right) ────────────────────────────────────────
 function PlayViewerPanel() {
-  const { getActiveProject } = useEditorStore();
-  const project = getActiveProject();
-  const mmlFile = project?.files.find((f) => f.name === "scene.mml");
-  const mml = mmlFile?.content || "";
+  // Reactive selector — updates whenever MML changes
+  const mml = useEditorStore((s) => {
+    const project = s.projects.find((p) => p.id === s.activeProjectId);
+    return project?.files.find((f) => f.name === "scene.mml")?.content || "";
+  });
+
+  // Debounce play viewport updates so it doesn't compete with the scene viewport
+  const [debouncedMml, setDebouncedMml] = useState(mml);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedMml(mml), 600);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [mml]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -186,7 +198,7 @@ function PlayViewerPanel() {
         </span>
       </div>
       <div className="flex-1 overflow-hidden relative">
-        <ThreeViewport mmlHtml={mml} />
+        <ThreeViewport mmlHtml={debouncedMml} isPlayMode={true} />
       </div>
     </div>
   );
@@ -194,18 +206,16 @@ function PlayViewerPanel() {
 
 // ─── Code Editor Panel (bottom-left) ──────────────────────────────────────
 function CodeEditorPanel() {
-  const {
-    getActiveFile,
-    getActiveProject,
-    activeFileId,
-    updateFileContent,
-    setValidation,
-    lastValidation,
-    addLog,
-  } = useEditorStore();
+  const { activeFileId, updateFileContent, setValidation, lastValidation, addLog } = useEditorStore();
 
-  const file = getActiveFile();
-  const project = getActiveProject();
+  // Reactive selectors — re-render when file content changes (e.g. from gizmo patch)
+  const file = useEditorStore((s) => {
+    const project = s.projects.find((p) => p.id === s.activeProjectId);
+    return project?.files.find((f) => f.id === s.activeFileId) || null;
+  });
+  const project = useEditorStore((s) =>
+    s.projects.find((p) => p.id === s.activeProjectId) || null
+  );
   const validateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleChange = useCallback(
