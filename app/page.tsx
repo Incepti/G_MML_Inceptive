@@ -9,6 +9,8 @@ import { RightSidebar } from "@/components/layout/RightSidebar";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { MonacoEditorPanel } from "@/components/editor/MonacoEditor";
 import { DiffViewer } from "@/components/editor/DiffViewer";
+import { AssetLibrary } from "@/components/explorer/AssetLibrary";
+import type { EnvironmentAsset } from "@/lib/assets/environment-catalog";
 
 // SSR-disabled for Three.js
 const ThreeViewport = dynamic(
@@ -106,20 +108,54 @@ function Titlebar() {
 
 // ─── Scene Editor Panel (top-left) ────────────────────────────────────────
 function SceneEditorPanel() {
-  const { getActiveProject } = useEditorStore();
+  const { getActiveProject, updateFileContent } = useEditorStore();
+  const [leftTab, setLeftTab] = useState<"scene" | "library">("scene");
+
   const project = getActiveProject();
   const mmlFile = project?.files.find((f) => f.name === "scene.mml");
   const mml = mmlFile?.content || "";
 
+  const handleInsertAsset = (asset: EnvironmentAsset) => {
+    const snippet = `<m-model id="${asset.id}" src="${asset.modelUrl}" x="0" y="0" z="0" sx="${asset.defaultScale}" sy="${asset.defaultScale}" sz="${asset.defaultScale}"></m-model>`;
+    if (project && mmlFile) {
+      // Inject before the closing root tag, or append
+      const current = mmlFile.content;
+      const closeIdx = current.lastIndexOf("</m-group>");
+      const newContent = closeIdx !== -1
+        ? current.slice(0, closeIdx) + "  " + snippet + "\n" + current.slice(closeIdx)
+        : current + "\n" + snippet;
+      updateFileContent(project.id, mmlFile.id, newContent);
+    } else {
+      navigator.clipboard.writeText(snippet).catch(() => {});
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center px-3 py-1 border-b border-editor-border shrink-0">
-        <span className="text-[10px] text-editor-text-muted uppercase tracking-wider font-semibold">
-          Scene Editor
-        </span>
+      {/* Tab bar */}
+      <div className="flex shrink-0 border-b border-editor-border">
+        {(["scene", "library"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setLeftTab(tab)}
+            className={`flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+              leftTab === tab
+                ? "border-editor-accent text-editor-accent"
+                : "border-transparent text-editor-text-muted hover:text-editor-text"
+            }`}
+          >
+            {tab === "scene" ? "Scene" : "Library"}
+          </button>
+        ))}
       </div>
+
+      {/* Content */}
       <div className="flex-1 overflow-hidden relative">
-        <ThreeViewport mmlHtml={mml} />
+        {leftTab === "scene" ? (
+          <ThreeViewport mmlHtml={mml} />
+        ) : (
+          <AssetLibrary onInsertAsset={handleInsertAsset} />
+        )}
       </div>
     </div>
   );

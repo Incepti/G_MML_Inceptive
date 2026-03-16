@@ -18,6 +18,11 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="icon" href="/favicon.ico" />
+        {/* model-viewer — used by AssetLibrary for 3D previews */}
+        <script
+          type="module"
+          src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
+        />
       </head>
       <body className="bg-editor-bg text-editor-text overflow-hidden h-screen font-sans">
         {children}
