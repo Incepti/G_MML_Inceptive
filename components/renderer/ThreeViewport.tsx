@@ -18,6 +18,7 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<MMLRenderer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const loadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,17 +78,26 @@ export function ThreeViewport({ mmlHtml }: ThreeViewportProps) {
     rendererRef.current?.setTransformMode(transformMode);
   }, [transformMode]);
 
-  // Load MML when it changes
+  // Load MML when it changes — debounced so rapid keystrokes don't trigger
+  // a full scene rebuild on every character typed in the code editor.
   useEffect(() => {
-    if (!rendererRef.current || !mmlHtml.trim()) return;
+    if (!mmlHtml.trim()) return;
 
-    setLoading(true);
-    setError(null);
+    if (loadDebounceRef.current) clearTimeout(loadDebounceRef.current);
 
-    rendererRef.current
-      .loadMML(mmlHtml)
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+    loadDebounceRef.current = setTimeout(() => {
+      if (!rendererRef.current) return;
+      setLoading(true);
+      setError(null);
+      rendererRef.current
+        .loadMML(mmlHtml)
+        .catch((e) => setError(String(e)))
+        .finally(() => setLoading(false));
+    }, 300);
+
+    return () => {
+      if (loadDebounceRef.current) clearTimeout(loadDebounceRef.current);
+    };
   }, [mmlHtml]);
 
   // Resize observer

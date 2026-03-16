@@ -11,6 +11,7 @@ import { MonacoEditorPanel } from "@/components/editor/MonacoEditor";
 import { DiffViewer } from "@/components/editor/DiffViewer";
 import { AssetLibrary } from "@/components/explorer/AssetLibrary";
 import type { EnvironmentAsset } from "@/lib/assets/environment-catalog";
+import { generateMml } from "@/lib/blueprint/generateMml";
 
 // SSR-disabled for Three.js
 const ThreeViewport = dynamic(
@@ -115,20 +116,36 @@ function SceneEditorPanel() {
   const mmlFile = project?.files.find((f) => f.name === "scene.mml");
   const mml = mmlFile?.content || "";
 
-  const handleInsertAsset = (asset: EnvironmentAsset) => {
+  const handleInsertAsset = useCallback((asset: EnvironmentAsset) => {
     const snippet = `<m-model id="${asset.id}" src="${asset.modelUrl}" x="0" y="0" z="0" sx="${asset.defaultScale}" sy="${asset.defaultScale}" sz="${asset.defaultScale}"></m-model>`;
-    if (project && mmlFile) {
-      // Inject before the closing root tag, or append
-      const current = mmlFile.content;
-      const closeIdx = current.lastIndexOf("</m-group>");
-      const newContent = closeIdx !== -1
-        ? current.slice(0, closeIdx) + "  " + snippet + "\n" + current.slice(closeIdx)
-        : current + "\n" + snippet;
-      updateFileContent(project.id, mmlFile.id, newContent);
-    } else {
+
+    // Always read fresh state — the render-time closure is stale if the user
+    // moved objects via the viewport gizmo (which updates currentBlueprint but
+    // NOT project.files, so mmlFile.content would be outdated).
+    const state = useEditorStore.getState();
+    const freshProject = state.projects.find((p) => p.id === state.activeProjectId);
+    const freshMmlFile = freshProject?.files.find((f) => f.name === "scene.mml");
+
+    if (!freshProject || !freshMmlFile) {
       navigator.clipboard.writeText(snippet).catch(() => {});
+      return;
     }
-  };
+
+    // If viewport transforms are pending, sync the blueprint to MML first
+    // so we don't lose the user's position changes.
+    let baseContent = freshMmlFile.content;
+    if (state.viewportTransformDirty && state.currentBlueprint) {
+      baseContent = generateMml(state.currentBlueprint);
+      state.resyncFromBlueprint(baseContent);
+      state.setViewportTransformDirty(false);
+    }
+
+    const closeIdx = baseContent.lastIndexOf("</m-group>");
+    const newContent = closeIdx !== -1
+      ? baseContent.slice(0, closeIdx) + "  " + snippet + "\n" + baseContent.slice(closeIdx)
+      : baseContent + "\n" + snippet;
+    state.updateFileContent(freshProject.id, freshMmlFile.id, newContent);
+  }, []);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -149,12 +166,15 @@ function SceneEditorPanel() {
         ))}
       </div>
 
-      {/* Content */}
+      {/* Content — ThreeViewport always mounted (never unmount = no renderer re-init) */}
       <div className="flex-1 overflow-hidden relative">
-        {leftTab === "scene" ? (
+        <div className={`w-full h-full ${leftTab === "scene" ? "block" : "hidden"}`}>
           <ThreeViewport mmlHtml={mml} />
-        ) : (
-          <AssetLibrary onInsertAsset={handleInsertAsset} />
+        </div>
+        {leftTab === "library" && (
+          <div className="w-full h-full overflow-hidden">
+            <AssetLibrary onInsertAsset={handleInsertAsset} />
+          </div>
         )}
       </div>
     </div>
