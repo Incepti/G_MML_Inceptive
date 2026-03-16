@@ -87,7 +87,42 @@ temple (small/medium):
   REQUIRED: main_hall(1 with pillars), pillars(6+), altar(1),
   entrance_steps(1), roof(1), torches(4+)
 
-For unlisted environments: identify 5-8 subsystems, assign each to a zone, ensure all present.
+bedroom (small/medium):
+  NW: bookshelf, plant | N: window, curtains | NE: wardrobe
+  W: nightstand, lamp | C: bed (frame+mattress+pillows+headboard+legs) | E: nightstand, lamp
+  SW: rug_corner | S: door | SE: desk, chair
+  REQUIRED: bed(1 fully detailed), nightstands(2), wardrobe(1), desk(1 with chair),
+  bookshelf(1), floor_lamp(1-2), window(1 with curtains/blinds), rug(1 under bed),
+  wall_art(2+), potted_plant(1+), ceiling_light(1)
+  PATHWAYS: door→desk, door→bed
+
+living_room (small/medium):
+  NW: bookshelf, plant | N: tv_unit, television | NE: plant, lamp
+  W: sofa (frame+cushions+legs+armrests) | C: coffee_table, rug | E: armchair, side_table
+  SW: floor_lamp | S: door, hallway | SE: cabinet, decor
+  REQUIRED: sofa(1 fully detailed), armchair(1-2), coffee_table(1), tv_unit(1),
+  bookshelf(1), floor_lamp(2), rug(1 large), wall_art(2+), plants(2+),
+  curtains/window(1+), ceiling_light(1)
+  PATHWAYS: door→sofa, sofa→tv_unit
+
+kitchen (small/medium):
+  NW: wall_cabinet | N: window, sink | NE: wall_cabinet
+  W: counter_left, cabinet_below | C: kitchen_island, bar_stools | E: counter_right, cabinet_below
+  SW: refrigerator | S: door | SE: stove, oven
+  REQUIRED: counters(3+ segments), wall_cabinets(4+), sink(1), stove(1),
+  refrigerator(1), kitchen_island(1), bar_stools(2+), overhead_light(2+),
+  microwave(1), cutting_board, utensil_holder
+  PATHWAYS: door→island, island→sink
+
+office_study (small):
+  NW: bookshelf | N: window | NE: bookshelf
+  W: filing_cabinet | C: desk (surface+legs+drawers), office_chair | E: printer_table
+  SW: plant | S: door | SE: waste_bin, floor_lamp
+  REQUIRED: desk(1 large with drawers), office_chair(1), bookshelves(2+),
+  monitor(1-2), keyboard+mouse, desk_lamp(1), floor_lamp(1),
+  filing_cabinet(1), wall_art(1+), plant(1+), ceiling_light(1)
+
+For unlisted environments: identify 8-12 subsystems covering all 9 zones, include specific furniture and decorative props for each zone, ensure minimum 20 structures total.
 
 UNIVERSAL OBJECT CONSTRUCTION MODEL:
 Every object MUST use a 3-LAYER hierarchy. Zero single-primitive objects allowed.
@@ -132,10 +167,12 @@ SCALE REFERENCE (meters):
   Lamp post: 3-4m | Fence: 1.5m high | Tree trunk: 3-5m, canopy: 2-4m radius
 
 BLUEPRINT RULES:
-• MINIMUM 20 top-level structures
+• MINIMUM 20 top-level structures — for indoor rooms (bedroom, living room, kitchen, office) this means
+  all furniture pieces + decorations + lights + architectural elements (walls, door, window, ceiling)
 • Buildings/towers/gates: 5+ children each
-• Props (bench/bed/table/barrel): 4+ children each
+• Props (bench/bed/table/barrel/sofa/wardrobe): 4+ children each
 • ZERO single-primitive objects anywhere
+• Indoor rooms MUST include: all zone-appropriate furniture, decorations (plants, art, rugs), and lighting
 • Total entities (structures + all nested children): 150-500
 • Every structure MUST have type and position
 • Use zones to organize spatial layout logically
