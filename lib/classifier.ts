@@ -21,6 +21,8 @@ export interface ClassificationResult {
 const SCENE_PATTERNS = [
   // Place / location nouns
   /\b(prison|jail|dungeon|castle|fortress|village|town|city|street|temple|church|cathedral|forest|clearing|garden|park|plaza|courtyard|market|arena|stadium|harbor|port|dock|farm|ranch|camp|cemetery|graveyard|battlefield|island|cave|mine|warehouse|factory|library|museum|school|hospital|station|airport|spacestation|colony)\b/i,
+  // Indoor rooms / spaces
+  /\b(bedroom|living\s*room|kitchen|bathroom|office|study|dining\s*room|hallway|lobby|corridor|lounge|studio|nursery|playroom|laundry\s*room|garage|basement|attic|cellar|chapel|throne\s*room|barracks|tavern|inn\s*room|cabin\s*interior)\b/i,
   // Layout / environment keywords
   /\b(scene|environment|world|landscape|terrain|level|map|layout|compound|complex|district|neighborhood|quarter|block|settlement|outpost|encampment|sanctuary)\b/i,
   // Multi-structure intent

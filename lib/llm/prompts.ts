@@ -170,11 +170,30 @@ ZONE GRID (each zone is a region of the ground plane):
 Scene scales: small=40×40m, medium=80×80m (default), large=150×150m
 Corner zones → towers, sentinels. Edges → walls, gates. Center → courtyard, focal point.
 
+ENVIRONMENT TEMPLATES — when the prompt matches, populate ALL required items:
+
+bedroom: bed(C) + nightstand×2(W/E) + wardrobe(NE) + desk+chair(SE) + bookshelf(NW) +
+  floor_lamp×2(SW/NE) + window(N) + rug(C) + wall_art×2(NW/NE) + plant(NW) + ceiling_light(C)
+  types: furniture(bed,nightstand,wardrobe,desk,chair,bookshelf,rug), lamp, prop(wall_art,plant), window, door
+
+living_room: sofa(W) + armchair×2(E) + coffee_table(C) + tv_unit(N) + bookshelf(NW) +
+  floor_lamp×2(SW/NE) + rug(C) + wall_art×2 + plant×2(NW/NE) + window(N) + ceiling_light(C)
+  types: furniture(sofa,armchair,table,bookshelf,rug), machine(tv_unit), lamp, prop(wall_art,plant), window, door
+
+kitchen: counter×3(N/W/E) + wall_cabinet×4 + sink(N) + stove(SE) +
+  refrigerator(SW) + kitchen_island(C) + bar_stool×2(C) + microwave(NE) + ceiling_light×2
+  types: furniture(counter,cabinet,stool,island), machine(stove,refrigerator,sink,microwave), lamp
+
+office_study: desk(C) + office_chair(C) + bookshelf×2(NW/NE) + monitor(C) +
+  filing_cabinet(W) + floor_lamp(SW) + desk_lamp(C) + plant(SE) + wall_art(N) + ceiling_light(C)
+  types: furniture(desk,chair,bookshelf,cabinet), machine(monitor), lamp, prop(plant,wall_art), window, door
+
 RULES:
 - Each structure needs a type, zone, and transform (position in world coordinates).
 - Do NOT include geometry/material/children — the engine generates those from the structure type.
 - Use 4-8 lights distributed across zones with type="light" and lightProps.
-- Minimum 10 top-level structures across at least 5 different zones.
+- Indoor rooms (bedroom, living room, kitchen, office): MUST use the matching template. Minimum 20 structures.
+- Other scenes: Minimum 15 top-level structures across at least 6 different zones.
 - Position structures realistically: walls at edges, towers at corners, gates at entry points.
 
 ${STRUCTURE_FORMAT}
