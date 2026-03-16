@@ -573,9 +573,14 @@ ENFORCEMENT RULES:
 - No ground plane or floor (environment provides one)
 - For m-model src: ONLY use VERIFIED_ASSET_CATALOG URLs or primitives. NEVER fabricate URLs.
 - Follow the 3-LAYER hierarchy from your Creative Director Mandate
-- MINIMUM element counts: simple object=12+, medium scene=50+, large scene=100+
+- MINIMUM element counts per Creative Director Mandate:
+    • small props (lamp, barrel, chair, desk): 12-20 elements
+    • complex objects (car, truck, boat, house, tree, campfire): 35-50 elements — USE THE VEHICLE CHECKLIST for vehicles
+    • indoor room (bedroom, kitchen, living room): 60+ elements (walls + ceiling + furniture + lights + decor)
+    • outdoor scene (village, forest, plaza): 100+ elements across 9 zones
 - Use the 9-zone blueprint grid to organize all structures spatially
 - Every object: structure layer + functional layer + detail layer = minimum 5 children
+- Vehicles: MUST include chassis, body, cabin, 4 tires+rims, doors, windows, bumpers, lights, mirrors, handles, sills
 - Color palette: pick 4-6 colors before building, use intentionally
 - Lighting: minimum 3 lights (key + fill + rim) placed with artistic purpose
 - metalness + roughness defines material feel: metal=0.8/0.2, stone=0.0/0.9, wood=0.0/0.8

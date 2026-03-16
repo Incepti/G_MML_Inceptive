@@ -464,11 +464,93 @@ EXAMPLE: "a campfire" — ELITE output (abbreviated):
   <m-light id="ambient-warm" type="point" x="0" y="0.3" z="0" color="#ff9900" intensity="0.6"/>
 </m-group>
 
+EXAMPLE: "a car" — BAD output:
+<m-group id="car">
+  <m-cube id="body" width="2" height="0.8" depth="4" y="0.6" color="#cc2222"/>
+  <m-cube id="roof" width="1.5" height="0.6" depth="2.2" y="1.3" color="#cc2222"/>
+  <m-cylinder id="wheel-fl" x="-0.95" y="0.32" z="-1.2" radius="0.32" height="0.2" color="#222222" rx="90"/>
+  <m-cylinder id="wheel-fr" x="0.95" y="0.32" z="-1.2" radius="0.32" height="0.2" color="#222222" rx="90"/>
+  <m-cylinder id="wheel-rl" x="-0.95" y="0.32" z="1.2" radius="0.32" height="0.2" color="#222222" rx="90"/>
+  <m-cylinder id="wheel-rr" x="0.95" y="0.32" z="1.2" radius="0.32" height="0.2" color="#222222" rx="90"/>
+</m-group>
+
+EXAMPLE: "a car" — ELITE output:
+<m-group id="car">
+  <!-- LAYER 1 — Structure: chassis and main body -->
+  <m-cube id="chassis" x="0" y="0.18" z="0" width="1.92" height="0.22" depth="4.1" color="#1a1a1a" metalness="0.3" roughness="0.8"/>
+  <m-cube id="body-lower" x="0" y="0.58" z="0.1" width="1.9" height="0.52" depth="3.8" color="#cc2222" metalness="0.4" roughness="0.3"/>
+  <!-- LAYER 2 — Functional: cabin, hood, trunk, doors -->
+  <m-cube id="cabin" x="0" y="1.15" z="0.15" width="1.72" height="0.62" depth="2.1" color="#cc2222" metalness="0.4" roughness="0.3"/>
+  <m-cube id="hood" x="0" y="0.76" z="-1.45" width="1.7" height="0.18" depth="1.0" color="#cc2222" rx="-4" metalness="0.4" roughness="0.25"/>
+  <m-cube id="trunk-lid" x="0" y="0.82" z="1.5" width="1.7" height="0.14" depth="0.85" color="#cc2222" rx="4" metalness="0.4" roughness="0.25"/>
+  <m-cube id="door-fl" x="-0.97" y="0.8" z="-0.55" width="0.06" height="0.55" depth="1.0" color="#bb1e1e" metalness="0.5" roughness="0.2"/>
+  <m-cube id="door-fr" x="0.97" y="0.8" z="-0.55" width="0.06" height="0.55" depth="1.0" color="#bb1e1e" metalness="0.5" roughness="0.2"/>
+  <m-cube id="door-rl" x="-0.97" y="0.8" z="0.65" width="0.06" height="0.55" depth="0.9" color="#bb1e1e" metalness="0.5" roughness="0.2"/>
+  <m-cube id="door-rr" x="0.97" y="0.8" z="0.65" width="0.06" height="0.55" depth="0.9" color="#bb1e1e" metalness="0.5" roughness="0.2"/>
+  <!-- Windows -->
+  <m-cube id="windshield" x="0" y="1.22" z="-0.98" width="1.5" height="0.52" depth="0.06" color="#3a6b8a" opacity="0.35" rx="-22" metalness="0.1" roughness="0"/>
+  <m-cube id="rear-window" x="0" y="1.22" z="1.08" width="1.4" height="0.46" depth="0.06" color="#3a6b8a" opacity="0.35" rx="22" metalness="0.1" roughness="0"/>
+  <m-cube id="window-fl" x="-0.97" y="1.22" z="-0.52" width="0.05" height="0.38" depth="0.7" color="#3a6b8a" opacity="0.3"/>
+  <m-cube id="window-fr" x="0.97" y="1.22" z="-0.52" width="0.05" height="0.38" depth="0.7" color="#3a6b8a" opacity="0.3"/>
+  <!-- LAYER 3 — Details: wheels, lights, grille, bumpers, mirrors -->
+  <!-- Front wheels with rims -->
+  <m-cylinder id="tire-fl" x="-0.98" y="0.32" z="-1.25" radius="0.32" height="0.22" color="#181818" rx="90" roughness="0.95"/>
+  <m-cylinder id="rim-fl" x="-1.0" y="0.32" z="-1.25" radius="0.18" height="0.24" color="#c0c0c0" rx="90" metalness="0.9" roughness="0.1"/>
+  <m-cylinder id="tire-fr" x="0.98" y="0.32" z="-1.25" radius="0.32" height="0.22" color="#181818" rx="90" roughness="0.95"/>
+  <m-cylinder id="rim-fr" x="1.0" y="0.32" z="-1.25" radius="0.18" height="0.24" color="#c0c0c0" rx="90" metalness="0.9" roughness="0.1"/>
+  <!-- Rear wheels with rims -->
+  <m-cylinder id="tire-rl" x="-0.98" y="0.32" z="1.2" radius="0.32" height="0.22" color="#181818" rx="90" roughness="0.95"/>
+  <m-cylinder id="rim-rl" x="-1.0" y="0.32" z="1.2" radius="0.18" height="0.24" color="#c0c0c0" rx="90" metalness="0.9" roughness="0.1"/>
+  <m-cylinder id="tire-rr" x="0.98" y="0.32" z="1.2" radius="0.32" height="0.22" color="#181818" rx="90" roughness="0.95"/>
+  <m-cylinder id="rim-rr" x="1.0" y="0.32" z="1.2" radius="0.18" height="0.24" color="#c0c0c0" rx="90" metalness="0.9" roughness="0.1"/>
+  <!-- Front bumper and grille -->
+  <m-cube id="bumper-front" x="0" y="0.38" z="-2.07" width="1.85" height="0.26" depth="0.12" color="#cc2222" metalness="0.3" roughness="0.4"/>
+  <m-cube id="grille" x="0" y="0.62" z="-2.02" width="1.0" height="0.22" depth="0.1" color="#111111" roughness="0.8"/>
+  <m-sphere id="headlight-l" x="-0.62" y="0.72" z="-2.0" radius="0.14" color="#ffffee" emissive="#ffffcc" emissive-intensity="0.6" opacity="0.9"/>
+  <m-sphere id="headlight-r" x="0.62" y="0.72" z="-2.0" radius="0.14" color="#ffffee" emissive="#ffffcc" emissive-intensity="0.6" opacity="0.9"/>
+  <!-- Rear bumper and lights -->
+  <m-cube id="bumper-rear" x="0" y="0.38" z="2.07" width="1.85" height="0.26" depth="0.12" color="#cc2222" metalness="0.3" roughness="0.4"/>
+  <m-sphere id="taillight-l" x="-0.65" y="0.72" z="2.0" radius="0.12" color="#ff2200" emissive="#ff0000" emissive-intensity="0.7"/>
+  <m-sphere id="taillight-r" x="0.65" y="0.72" z="2.0" radius="0.12" color="#ff2200" emissive="#ff0000" emissive-intensity="0.7"/>
+  <!-- Exhaust -->
+  <m-cylinder id="exhaust-l" x="-0.42" y="0.22" z="2.1" radius="0.04" height="0.14" color="#444444" rx="90" metalness="0.7"/>
+  <m-cylinder id="exhaust-r" x="-0.28" y="0.22" z="2.1" radius="0.04" height="0.14" color="#444444" rx="90" metalness="0.7"/>
+  <!-- Mirrors -->
+  <m-cube id="mirror-l" x="-1.02" y="1.08" z="-0.9" width="0.08" height="0.1" depth="0.22" color="#cc2222"/>
+  <m-cube id="mirror-r" x="1.02" y="1.08" z="-0.9" width="0.08" height="0.1" depth="0.22" color="#cc2222"/>
+  <!-- Roof trim and antenna -->
+  <m-cube id="roof-trim" x="0" y="1.49" z="0.15" width="1.5" height="0.04" depth="1.95" color="#111111" metalness="0.6"/>
+  <m-cylinder id="antenna" x="0.4" y="1.75" z="0.3" radius="0.01" height="0.28" color="#888888" metalness="0.8"/>
+  <!-- Door handles -->
+  <m-cube id="handle-fl" x="-1.0" y="0.88" z="-0.4" width="0.04" height="0.04" depth="0.16" color="#aaaaaa" metalness="0.8"/>
+  <m-cube id="handle-rl" x="-1.0" y="0.88" z="0.6" width="0.04" height="0.04" depth="0.16" color="#aaaaaa" metalness="0.8"/>
+  <!-- Underside detail -->
+  <m-cube id="sill-l" x="-0.97" y="0.36" z="0" width="0.06" height="0.08" depth="3.6" color="#111111" roughness="0.9"/>
+  <m-cube id="sill-r" x="0.97" y="0.36" z="0" width="0.06" height="0.08" depth="3.6" color="#111111" roughness="0.9"/>
+</m-group>
+
 These examples show the quality bar. Every output must meet or exceed this level of detail,
 compositional thinking, and spatial storytelling. A prompt like "a medieval village" should
-produce 100+ elements organized across the 9-zone grid. A prompt like "a desk lamp" should
-produce 15+ elements with proper 3-layer construction. There is no such thing as "too simple
-to deserve detail."
+produce 100+ elements organized across the 9-zone grid. A prompt like "a car" should produce
+40+ elements with proper 3-layer construction. A prompt like "a desk lamp" should produce 15+
+elements. There is no such thing as "too simple to deserve detail."
+
+VEHICLE CHECKLIST (use this when building any vehicle):
+□ Chassis/frame (low, wide)
+□ Body panels (lower + upper, possibly split)
+□ Cabin/roof
+□ Hood + trunk
+□ 4 tires (cylinder, dark, high roughness)
+□ 4 wheel rims (cylinder, metallic, inside tire)
+□ 4 doors or equivalent panels
+□ Windshield + rear window (semi-transparent)
+□ Side windows (2-4)
+□ Front bumper + grille + headlights
+□ Rear bumper + taillights + exhaust
+□ Mirrors (x2)
+□ Roof trim + antenna
+□ Door handles (x2-4)
+□ Side sills
 `;
 
 export const STATIC_MML_ADDENDUM = `
