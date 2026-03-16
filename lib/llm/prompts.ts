@@ -66,69 +66,122 @@ eye, window, port, lens, socket           — inset/recessed details
 `;
 
 const SCALE_REFERENCE = `
-SCALE, PLACEMENT & SPACING GUIDE (read carefully — every position and y-value matters)
+SCALE, PLACEMENT & SPACING GUIDE
 
-ROOM SIZES (total area — keep all objects inside these bounds):
-  bedroom:     6m wide × 8m deep  → x: -3 to +3,  z: -4 to +4
-  living_room: 8m wide × 10m deep → x: -4 to +4,  z: -5 to +5
-  kitchen:     6m wide × 8m deep  → x: -3 to +3,  z: -4 to +4
-  office:      5m wide × 6m deep  → x: -2.5 to +2.5, z: -3 to +3
-  outdoor:     40–150m wide (use full zone grid)
+━━━ HUMAN SCALE BASELINE ━━━
+1 adult human = 1.8m tall. Everything must look correct next to this.
+  Eye level: 1.6m | Arm reach: 0.7m | Shoulder width: 0.5m
+  Standard ceiling: 3.0m | Door top: 2.1m | Window sill: 0.85m | Window top: 2.0m
 
-OBJECT DIMENSIONS & Y PLACEMENT (y=0 means resting on floor):
-  Furniture — floor level (y=0):
-    Bed (single):    2.0m long × 1.2m wide × 0.6m tall
-    Bed (double):    2.0m long × 1.8m wide × 0.6m tall
-    Nightstand:      0.5m × 0.5m × 0.6m tall — place beside bed: x = bed_x ± 1.1m
-    Wardrobe:        1.8m wide × 0.6m deep × 2.0m tall — flush against wall
-    Desk:            1.4m wide × 0.7m deep × 0.75m tall
-    Office chair:    0.6m × 0.6m, seat at 0.45m — place 0.8m behind desk
-    Bookshelf:       0.9m wide × 0.3m deep × 1.8m tall — flush against wall
-    Sofa:            2.2m wide × 0.9m deep × 0.85m tall
-    Armchair:        0.85m × 0.85m × 0.85m
-    Coffee table:    1.2m × 0.6m × 0.45m tall — 0.8m in front of sofa
-    TV unit/stand:   1.5m wide × 0.4m deep × 0.5m tall — against wall, facing sofa
-    Kitchen counter: 0.6m deep × 0.9m tall — flush against wall
-    Kitchen island:  1.2m × 0.8m × 0.9m tall — center of kitchen
-    Bar stool:       seat at y=0.75m, 0.5m from island edge
-    Refrigerator:    0.7m × 0.7m × 1.8m tall — corner placement
-    Stove/oven:      0.6m × 0.6m × 0.9m tall — against wall
-    Filing cabinet:  0.5m × 0.6m × 1.3m tall
-    Floor lamp:      0.3m wide × 1.8m tall — y=0, corner or beside furniture
-    Rug/carpet:      2–3m diameter or 3×2m — y=0.01 (just above floor)
-    Door:            1.0m wide × 2.1m tall — at room edge (z = ±room_depth/2)
-    Potted plant:    0.4m wide × 0.8m tall — corner or beside furniture
+━━━ ROOM SIZES (keep ALL objects inside these bounds) ━━━
+  bedroom:        6m wide × 8m deep    x: -3 to +3,    z: -4 to +4
+  living_room:    8m wide × 10m deep   x: -4 to +4,    z: -5 to +5
+  kitchen:        6m wide × 8m deep    x: -3 to +3,    z: -4 to +4
+  office/study:   5m wide × 6m deep    x: -2.5 to +2.5,z: -3 to +3
+  dining_room:    7m wide × 9m deep    x: -3.5 to +3.5,z: -4.5 to +4.5
+  bathroom:       3m wide × 4m deep    x: -1.5 to +1.5,z: -2 to +2
+  garage:         6m wide × 10m deep   x: -3 to +3,    z: -5 to +5
+  outdoor scene:  40–150m wide (use full zone grid)
 
-  Wall-mounted items (use y = mount height, face inward with ry):
-    Wall art / picture frame: y=2.2–2.5m, z = ±(room_depth/2 - 0.05), ry=0 or 180
-    Mirror:          y=1.5–2.0m, same z rule as wall art
-    Wall cabinet:    y=1.4–1.8m (above counter), z = wall
+━━━ WALL CONSTRUCTION — NEVER a single cube per wall ━━━
+Each wall must be built from multiple cubes to accommodate openings (doors, windows).
+Wall thickness: 0.2m interior / 0.35m exterior.
 
-  Items on surfaces (y = surface height):
-    Objects on desk (y=0.75): monitor y=0.75, desk lamp y=0.75, keyboard y=0.75
-    Objects on nightstand (y=0.6): lamp y=0.6, book y=0.6
-    Objects on counter (y=0.9): microwave y=0.9, items y=0.9
+ALGORITHM — for a wall running along X (north/south face), room width W, height H=3:
+  Standard door: width=1.0m, height=2.1m, centered at x=door_cx (any x along wall)
+  Standard window: width=1.4m, height=1.15m, sill y=0.85, top y=2.0, centered at x=win_cx
 
-SPACING RULES (never overlap objects):
-  - Minimum 0.4m gap between any two objects (center-to-center minus half-widths)
-  - Bed to nightstand: nightstand z = bed_z, x = bed_x ± (bed_halfwidth + 0.55)
-  - Sofa to coffee table: coffee table at sofa_z + 1.0 (in front)
-  - Desk chair: behind desk by 0.8m (chair_z = desk_z + 0.8)
-  - Wall-flush items (wardrobe, bookshelf, TV): z = ±(room_depth/2 - 0.35)
-  - Corner items (plant, lamp): x and z both near ±room_edge
+  Segments left→right along X:
+    1. Left strip (wall_left to door_left):
+       w = door_cx - 0.5 - (-W/2),  h = H,    x = (-W/2 + door_cx-0.5)/2,    y = H/2
+    2. Door header (above door opening):
+       w = 1.0,  h = H-2.1 = 0.9,              x = door_cx,                   y = 2.1 + 0.45
+    3. Between door and window (door_right to win_left):
+       w = win_cx-0.7 - (door_cx+0.5),  h = H, x = midpoint,                  y = H/2
+    4. Window sill (below window):
+       w = 1.4,  h = 0.85,                      x = win_cx,                    y = 0.425
+    5. Window head (above window):
+       w = 1.4,  h = H-2.0 = 1.0,               x = win_cx,                    y = 2.0+0.5
+    6. Right strip (win_right to wall_right):
+       w = W/2 - (win_cx+0.7),  h = H,           x = midpoint,                  y = H/2
 
-MODEL SCALE (sx/sy/sz transform):
-  The resolver applies each model's built-in scale automatically.
-  Only set sx/sy/sz if you want to explicitly resize:
-    Default (auto):  sx:1 sy:1 sz:1
-    Larger:          sx:1.5 sy:1.5 sz:1.5
-    Smaller:         sx:0.6 sy:0.6 sz:0.6
-  For wall art: use sx:1 sy:1 sz:1 with ry rotation to face the room
+  For EAST/WEST walls (running along Z axis): swap x↔z in the same formula.
+  For walls with NO openings: use a single cube (only acceptable case).
+  For walls with ONLY a door (no window): omit segments 3–5, join strip right of door.
 
-OUTDOOR SCALE:
-  Perimeter wall: 8–10m tall | Tower: 12–20m total | Lamp post: 3–4m
-  Fence: 1.5m | Tree: 3–5m trunk + 2–4m canopy | Rock: 0.5–3m
-  Buildings: 4–12m tall depending on stories
+EXAMPLE — bedroom north wall (W=6, door at x=-2, window at x=1.5):
+  wall-n-left:    cube(w=1.5,  h=3, d=0.2) @ (-3.75, 1.5, -4)   [from x=-3 to x=-2.5]
+  wall-n-door-hd: cube(w=1.0,  h=0.9,d=0.2)@ (-2, 2.55, -4)     [header above door]
+  wall-n-mid:     cube(w=2.0,  h=3, d=0.2) @ (-0.5, 1.5, -4)    [between door & window]
+  wall-n-win-sill:cube(w=1.4,  h=0.85,d=0.2)@(1.5, 0.425,-4)    [below window]
+  wall-n-win-head:cube(w=1.4,  h=1.0, d=0.2)@(1.5, 2.5,  -4)    [above window]
+  wall-n-right:   cube(w=1.3,  h=3, d=0.2) @ (2.65, 1.5, -4)    [from x=2.2 to x=3]
+
+  Window glass pane (optional, shows view):
+  window-glass:   plane(w=1.4, h=1.15)       @ (1.5, 1.425,-3.99) rx=90 material{#3a6b8a,opacity:0.3}
+
+ALWAYS BUILD for any enclosed space:
+  - All 4 walls (each subdivided if they have openings)
+  - Ceiling: plane(w=room_w, h=room_d) @ (0, 3, 0, rx=90) material{#f8f8f5}
+  - Optional baseboard: cube(w=room_w, h=0.08, d=0.05) @ (0, 0.04, ±room_d/2+0.01) material{darker than wall}
+
+━━━ OBJECT DIMENSIONS & Y PLACEMENT (y=0 = floor) ━━━
+  Floor-level furniture (y=0):
+    Bed single:      2.0L × 1.2W × 0.6H — modelTags: ["bed","single bed","mattress"]
+    Bed double:      2.0L × 1.8W × 0.6H — modelTags: ["bed","double bed","mattress"]
+    Nightstand:      0.5 × 0.5 × 0.6H   — x = bed_x ± (bed_w/2 + 0.55), same z as bed
+    Wardrobe:        1.8W × 0.6D × 2.0H — flush against wall, z = ±(depth/2 - 0.3)
+    Desk:            1.4W × 0.7D × 0.75H— against wall or corner
+    Office chair:    0.6 × 0.6 × 1.2H   — z = desk_z + 0.7 (behind desk)
+    Bookshelf:       0.9W × 0.3D × 1.8H — flush against wall
+    Sofa:            2.2W × 0.9D × 0.85H— facing TV/fireplace
+    Armchair:        0.85 × 0.85 × 0.85H— beside sofa, angled ry=±30
+    Coffee table:    1.2W × 0.6D × 0.45H— 0.8m in front of sofa (z = sofa_z + 0.85)
+    TV unit:         1.5W × 0.4D × 0.5H — against wall opposite sofa
+    Counter (kitchen):0.6D × 0.9H       — against wall
+    Kitchen island:  1.2W × 0.8D × 0.9H— center
+    Bar stool:       0.4 × 0.4, seat y=0.75 — 0.5m from island edge
+    Refrigerator:    0.7W × 0.7D × 1.8H — corner
+    Stove:           0.6 × 0.6 × 0.9H  — against counter wall
+    Toilet:          0.4W × 0.7D × 0.8H — against wall
+    Bathtub:         1.7W × 0.8D × 0.6H — against wall
+    Dining table:    1.8W × 0.9D × 0.75H— center of room
+    Dining chair:    0.5 × 0.5 × 0.9H  — 0.5m from table edge, 4–6 around table
+    Floor lamp:      0.3W × 1.8H        — corner or beside seating
+    Rug/carpet:      2–3m, y=0.01
+
+  Wall-mounted (y = mount height, face inward with ry=0/90/180/270):
+    Wall art:  y=2.0–2.3, z = wall_z ± 0.02 (slightly off wall to avoid z-fighting)
+    Mirror:    y=1.5–1.8 (center), z = wall_z ± 0.02
+    Wall cabinet (kitchen): y=1.5 (center), above counter
+
+  On surfaces (y = surface top height):
+    On desk (y=0.75):        monitor, keyboard, desk lamp, books
+    On nightstand (y=0.6):   lamp, phone, books, alarm clock
+    On counter (y=0.9):      microwave, toaster, kettle, items
+    On coffee table (y=0.45):remote, books, vase, candles
+    On dining table (y=0.75):plates, candles, centerpiece
+
+━━━ MODEL SCALE (sx/sy/sz) ━━━
+  GCS models are authored at varying native scales. Use these sx/sy/sz guidelines:
+  DO NOT leave scale at default 1 blindly — override when you know the object's real size.
+
+  Most models need no override (sx=sy=sz=1 works). Override only when proportions feel off:
+    Small objects (book, vase, phone, remote): sx=0.5 sy=0.5 sz=0.5
+    Medium objects (chair, lamp, plant): sx=1 sy=1 sz=1
+    Large furniture (bed, wardrobe, sofa): sx=1 sy=1 sz=1
+    Very large (tree, building): sx=1.5–2.0 uniformly if needed
+    Wall art (thin panels): sx=1 sy=1 sz=0.1 and use ry to face room
+
+━━━ SPACING RULES ━━━
+  Min gap between any two objects: 0.4m
+  Walkway between furniture: 0.8m (person needs 0.6m to walk)
+  Bed center to room wall: at least 0.5m clearance on accessible sides
+  Desk to nearest wall: 0.9m behind chair (room to push chair back)
+
+━━━ OUTDOOR SCALE ━━━
+  Perimeter wall: 8–10m tall | Tower: 12–20m | Lamp post: 3–4m
+  Fence: 1.5m | Tree: 4–8m | Rock: 0.5–3m | Building: 4–15m
 `;
 
 // ─── Shared: Structure format for scene structures ──────────────────────────
