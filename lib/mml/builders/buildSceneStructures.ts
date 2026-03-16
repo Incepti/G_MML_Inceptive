@@ -87,10 +87,39 @@ const TYPE_TO_BUILDER: Record<string, string> = {
   tool: "tool",
 };
 
+// MML tag names the LLM sometimes uses directly as structure types
+const MML_TAG_TO_GEOMETRY_KIND: Record<string, "cube" | "cylinder" | "sphere" | "plane"> = {
+  "m-cube": "cube",
+  "m-cylinder": "cylinder",
+  "m-sphere": "sphere",
+  "m-plane": "plane",
+};
+
+function normalizeMmlTagType(s: BlueprintStructure): BlueprintStructure {
+  const kind = MML_TAG_TO_GEOMETRY_KIND[s.type];
+  if (!kind) return s;
+  // LLM set type="m-cube" instead of type="wall" + geometry.kind="cube"
+  // Normalize: set type="custom" and ensure geometry.kind is correct
+  return {
+    ...s,
+    type: "custom",
+    geometry: {
+      kind,
+      width: s.geometry?.width,
+      height: s.geometry?.height,
+      depth: s.geometry?.depth,
+      radius: s.geometry?.radius,
+    },
+  };
+}
+
 function enhanceSceneStructure(
   s: BlueprintStructure,
   theme: string,
 ): BlueprintStructure {
+  // Normalize MML tag types (e.g. type="m-cube" → type="custom" + geometry.kind="cube")
+  s = normalizeMmlTagType(s);
+
   // Skip lights — they don't need geometry
   if (s.type === "light" || s.lightProps) return s;
 

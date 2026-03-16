@@ -17,7 +17,7 @@ export type Transform = z.infer<typeof TransformSchema>;
 
 // ─── Blueprint Geometry ──────────────────────────────────────────────────────
 export const GeometrySchema = z.object({
-  kind: z.enum(["cube", "cylinder", "sphere", "plane"]),
+  kind: z.enum(["cube", "cylinder", "sphere", "plane"]).default("cube"),
   width: z.number().optional(),
   height: z.number().optional(),
   depth: z.number().optional(),
@@ -54,6 +54,7 @@ export const StructureTypeEnum = z.enum([
   "custom", "furniture", "machine", "container", "weapon", "tool",
   "creature", "nature", "character", "house", "spaceship", "animal",
   "decoration", "food", "electronics", "structure",
+  "m-cube", "m-cylinder", "m-sphere", "m-plane",
 ]);
 
 export type StructureType = z.infer<typeof StructureTypeEnum>;
