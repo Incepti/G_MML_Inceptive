@@ -140,27 +140,59 @@ STRUCTURE FORMAT (for scene.structures):
   "type": "wall|tower|building|room|door|window|prop|clockTower|light|fence|gate|roof|floor|pillar|arch|stair|bridge|tree|rock|water|lamp|bench|table|chair|sign|barrel|crate|vehicle|custom|furniture|machine|container|weapon|tool|creature|nature|character|house|decoration|electronics|structure",
   "zone": "NW|N|NE|W|C|E|SW|S|SE",
   "transform": { "x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"sx":1,"sy":1,"sz":1 },
+
+  // Option A — 3D model from GCS bucket (furniture, props, trees, characters, vehicles, etc.)
   "modelTags": ["specific-object-name", "material", "style"],
+
+  // Option B — primitive geometry (walls, ceilings, floors, window-openings, pillars, fences, simple shapes)
+  "geometry": { "kind": "cube|cylinder|sphere|plane", "width":1, "height":1, "depth":1 },
+  "material": { "color": "#cccccc", "roughness": 0.8, "metalness": 0, "opacity": 1 },
+
+  // Lights only
   "lightProps": { "type":"point|directional|spot", "intensity":1, "color":"#ffffff", "distance":20 },
-  "label": "optional — ONLY for actual text labels rendered via m-label (signs, nameplates). Do NOT set label on objects like chairs, trees, etc."
+  "label": "ONLY for visible text signs/nameplates rendered in-world"
 }
 
-modelTags IS CRITICAL — this is how the 3D model picker knows exactly what object to place.
-Always include 2-4 specific tags describing the object. Examples:
-  wardrobe     → modelTags: ["wardrobe", "cabinet", "wooden", "storage"]
-  nightstand   → modelTags: ["nightstand", "bedside table", "drawer"]
-  office chair → modelTags: ["office chair", "chair", "desk", "swivel"]
-  refrigerator → modelTags: ["refrigerator", "fridge", "kitchen appliance"]
-  bookshelf    → modelTags: ["bookshelf", "shelves", "books", "wooden"]
-  tv unit      → modelTags: ["television", "tv stand", "monitor", "screen"]
-  floor lamp   → modelTags: ["floor lamp", "lamp", "standing light"]
-  potted plant → modelTags: ["plant", "potted", "indoor", "houseplant"]
-  kitchen sink → modelTags: ["sink", "basin", "kitchen"]
-  wall art     → modelTags: ["picture frame", "wall art", "painting", "decorative"]
-  oak tree     → modelTags: ["oak tree", "tree", "large", "deciduous"]
-  sports car   → modelTags: ["sports car", "car", "vehicle", "fast"]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRIMITIVES vs MODELS — choose based on object type:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-NOTE: Do NOT include geometry, material, or children on structures. The model picker uses modelTags to find the best matching 3D model from 667 available assets.
+USE GEOMETRY (primitives) for architectural/structural elements with no matching 3D model:
+  Walls, ceiling, floor panels, window openings, pillars/columns, arches,
+  fence posts, simple platforms, stairs treads, road segments, simple roofs.
+
+  Wall examples (cube):
+    North wall (bedroom 6×3m): { "geometry":{"kind":"cube","width":6,"height":3,"depth":0.2}, "transform":{"x":0,"y":1.5,"z":-5}, "material":{"color":"#f0ebe3","roughness":0.9} }
+    East wall:                  { "geometry":{"kind":"cube","width":0.2,"height":3,"depth":10}, "transform":{"x":3,"y":1.5,"z":0}, "material":{"color":"#f0ebe3","roughness":0.9} }
+    Ceiling (plane):            { "geometry":{"kind":"plane","width":6,"height":10},           "transform":{"x":0,"y":3,"z":0,"rx":90}, "material":{"color":"#ffffff","roughness":1} }
+    Baseboard (thin cube):      { "geometry":{"kind":"cube","width":6,"height":0.1,"depth":0.05}, "transform":{"x":0,"y":0.05,"z":-4.9}, "material":{"color":"#d4cfc8"} }
+    Window opening (dark plane):{ "geometry":{"kind":"plane","width":1.2,"height":0.8},        "transform":{"x":-1,"y":2,"z":-5,"rx":90}, "material":{"color":"#1a3a5c","opacity":0.4} }
+    Pillar (cylinder):          { "geometry":{"kind":"cylinder","radius":0.15,"height":3},     "transform":{"x":3,"y":1.5,"z":-5} }
+    Fence post:                 { "geometry":{"kind":"cylinder","radius":0.05,"height":1.5},   "transform":{"y":0.75} }
+    Outdoor rock (sphere):      { "geometry":{"kind":"sphere","radius":0.8},                   "transform":{"y":0.8}, "material":{"color":"#706050","roughness":1} }
+
+  IMPORTANT: primitives must be DETAILED — never use a single plain cube as "a wall".
+  For a room, build ALL 4 walls + ceiling separately. Add baseboards, window openings, door frames.
+
+USE MODELS (modelTags) for all recognizable objects with real-world counterparts in the GCS bucket:
+  Furniture, appliances, decorative items, vehicles, plants, characters, electronics, food, tools, weapons, props.
+
+  modelTags IS CRITICAL — this is how the 3D model picker knows exactly what object to place.
+  Always include 2-4 specific tags:
+    wardrobe     → modelTags: ["wardrobe", "cabinet", "wooden", "storage"]
+    nightstand   → modelTags: ["nightstand", "bedside table", "drawer"]
+    office chair → modelTags: ["office chair", "chair", "desk", "swivel"]
+    refrigerator → modelTags: ["refrigerator", "fridge", "kitchen appliance"]
+    bookshelf    → modelTags: ["bookshelf", "shelves", "books", "wooden"]
+    tv unit      → modelTags: ["television", "tv stand", "monitor", "screen"]
+    floor lamp   → modelTags: ["floor lamp", "lamp", "standing light"]
+    potted plant → modelTags: ["plant", "potted", "indoor", "houseplant"]
+    kitchen sink → modelTags: ["sink", "basin", "kitchen"]
+    wall art     → modelTags: ["picture frame", "wall art", "painting", "decorative"]
+    oak tree     → modelTags: ["oak tree", "tree", "large", "deciduous"]
+    sports car   → modelTags: ["sports car", "car", "vehicle", "fast"]
+
+NEVER set both geometry and modelTags on the same structure. Pick one.
 `;
 
 // ─── OBJECT mode system prompt ──────────────────────────────────────────────
@@ -255,43 +287,120 @@ INDOOR ROOM SCALE: use sceneScale="small", ground width=12 height=10.
   Use id names that reflect only the object, NOT the room (e.g. id="wardrobe" not id="bedroom-wardrobe").
 
 bedroom (ground 12×10m, sceneScale=small):
-  NW(-4,-4): bookshelf[modelTags:bookshelf,shelves,books] + plant[modelTags:plant,potted,indoor]
-  N(0,-4,2.5): wall-art[modelTags:picture frame,wall art,painting]
-  NE(4,-4): wardrobe[modelTags:wardrobe,cabinet,wooden,storage]
-  W(-5,0): nightstand-left[modelTags:nightstand,bedside table,drawer]
-  C(0,0): bed[modelTags:bed,mattress,bedroom,single]
-  E(5,0): nightstand-right[modelTags:nightstand,bedside table,drawer]
-  SW(-4,4): floor-lamp[modelTags:floor lamp,lamp,standing light]
-  S(0,4): door[modelTags:door,wooden,entrance]
-  SE(4,4): desk[modelTags:desk,workspace,wooden] + chair[modelTags:chair,desk chair,wooden]
-  C(0,3,0): ceiling-light[type=light,point,warm]
-  C(0,0.01,1): rug[modelTags:rug,carpet,round,floor covering]
+  WALLS (primitives — build all 4 walls + ceiling):
+    wall-north:  geometry{cube,w:12,h:3,d:0.2} @ (0,1.5,-5)  material{#f0ebe3}
+    wall-south:  geometry{cube,w:12,h:3,d:0.2} @ (0,1.5, 5)  material{#f0ebe3}
+    wall-east:   geometry{cube,w:0.2,h:3,d:10} @ (6,1.5, 0)  material{#ede8e0}
+    wall-west:   geometry{cube,w:0.2,h:3,d:10} @ (-6,1.5,0)  material{#ede8e0}
+    ceiling:     geometry{plane,w:12,h:10}      @ (0,3,  0,rx:90) material{#ffffff}
+    window-pane: geometry{plane,w:1.4,h:1.0}   @ (0,2.1,-4.9,rx:90) material{#1a3a5c,opacity:0.35}
+    door-frame:  geometry{cube,w:1.1,h:2.2,d:0.1} @ (-5,1.1,5) material{#c8b89a}
+  FURNITURE (models):
+    NW(-4,-4): bookshelf[modelTags:bookshelf,shelves,books,wooden]
+    NW(-5,-3): corner-plant[modelTags:plant,potted,indoor,houseplant]
+    N(1,2.2,-4.9): wall-art[modelTags:picture frame,wall art,painting] geometry{plane,w:0.8,h:0.6} rx:90
+    NE(4,-4): wardrobe[modelTags:wardrobe,cabinet,wooden,storage]
+    W(-3.5,0): nightstand-left[modelTags:nightstand,bedside table,drawer]
+    C(0,0): bed[modelTags:bed,mattress,bedroom,double]
+    E(3.5,0): nightstand-right[modelTags:nightstand,bedside table,drawer]
+    SW(-4,4): floor-lamp[modelTags:floor lamp,lamp,standing light]
+    S(-5,0,4): door[modelTags:door,wooden,entrance]
+    SE(4,3): desk[modelTags:desk,workspace,wooden] + desk-chair[modelTags:chair,desk chair,wooden]
+    C(0.5,0.75,-0.3): desk-lamp[modelTags:desk lamp,lamp,small] y:0.75
+    C(0,0.01,1.5): rug[modelTags:rug,carpet,floor covering]
+  LIGHTS:
+    C(0,2.8,0): ceiling-light[point,#fff5e0,intensity:1.2,distance:20]
+    W(-3.5,1.5,0): bedside-light-left[point,#ffcc99,intensity:0.6,distance:6]
+    E(3.5,1.5,0): bedside-light-right[point,#ffcc99,intensity:0.6,distance:6]
+    SE(4,1.2,3): desk-light[spot,#ffffff,intensity:0.8,distance:8]
   types: furniture(bed,nightstand,wardrobe,desk,chair,bookshelf,rug), lamp, prop(wall_art,plant), door
 
 living_room (ground 14×12m, sceneScale=small):
-  NW(-5,-5): bookshelf | N(0,-5): tv-unit | NE(5,-5): plant
-  W(-6,0): sofa | C(0,0): coffee-table + rug | E(6,1): armchair
-  SW(-5,5): floor-lamp | S(0,5): door | SE(5,5): side-table + plant-2
-  + ceiling-light(0,3,0) + wall-art(-5,2.5,-5) + floor-lamp-2(5,-5,0)
+  WALLS (primitives):
+    wall-north: geometry{cube,w:14,h:3,d:0.2} @ (0,1.5,-6)  material{#e8e2d8}
+    wall-south: geometry{cube,w:14,h:3,d:0.2} @ (0,1.5, 6)  material{#e8e2d8}
+    wall-east:  geometry{cube,w:0.2,h:3,d:12} @ (7,1.5,0)   material{#e2dcd2}
+    wall-west:  geometry{cube,w:0.2,h:3,d:12} @ (-7,1.5,0)  material{#e2dcd2}
+    ceiling:    geometry{plane,w:14,h:12}      @ (0,3,0,rx:90) material{#ffffff}
+    window-1:   geometry{plane,w:1.6,h:1.0}   @ (-2,2.1,-5.9,rx:90) material{#1a3a5c,opacity:0.35}
+    window-2:   geometry{plane,w:1.6,h:1.0}   @ (2,2.1,-5.9,rx:90)  material{#1a3a5c,opacity:0.35}
+  FURNITURE (models):
+    NW(-5,-5): bookshelf[bookshelf,shelves,books]
+    N(0,-5,1.5): tv-unit[television,tv stand,entertainment unit]
+    NE(5,-5): plant[plant,potted,large,indoor]
+    W(-6,0): sofa[sofa,couch,3 seater,living room]
+    C(0,0): coffee-table[coffee table,low table] + rug[rug,carpet,large,living room]
+    E(6,1): armchair[armchair,accent chair,single seat]
+    SW(-5,5): floor-lamp[floor lamp,standing light]
+    S(0,5): door[door,wooden,entrance]
+    SE(5,5): side-table[side table,end table] + plant-2[plant,potted,small]
+    N(-5,2.5,-5.9): wall-art[picture frame,wall art,painting] geometry{plane,w:1.0,h:0.7} rx:90
+    N(5,2.5,-5.9): wall-art-2[picture frame,wall art] geometry{plane,w:0.8,h:0.6} rx:90
+    NE(5,-4,0): floor-lamp-2[floor lamp,standing light]
+  LIGHTS:
+    C(0,2.8,0): ceiling-light[point,#fff8f0,intensity:1.4,distance:25]
+    W(-6,1.5,0): sofa-light[point,#ffdd99,intensity:0.5,distance:10]
+    SE(5,1.2,5): corner-light[point,#ffe0aa,intensity:0.4,distance:8]
   types: furniture(sofa,armchair,table,bookshelf,rug), machine(tv-unit), lamp, prop(wall_art,plant), door
 
 kitchen (ground 12×10m, sceneScale=small):
-  NW(-5,-4): wall-cabinet-left | N(0,-4): sink | NE(5,-4): wall-cabinet-right
-  W(-5,0): counter-left | C(0,0): kitchen-island | E(5,0): counter-right
-  SW(-5,4): refrigerator | S(0,4): door | SE(5,4): stove
-  + wall-cabinet-nw(-4,-4,0) + wall-cabinet-ne(4,-4,0) + bar-stool-1(-1.5,0,0) + bar-stool-2(1.5,0,0) + microwave(5,-4,0)
+  WALLS (primitives):
+    wall-north: geometry{cube,w:12,h:3,d:0.2} @ (0,1.5,-5) material{#f5f0e8}
+    wall-south: geometry{cube,w:12,h:3,d:0.2} @ (0,1.5, 5) material{#f5f0e8}
+    wall-east:  geometry{cube,w:0.2,h:3,d:10} @ (6,1.5,0)  material{#f0ebe0}
+    wall-west:  geometry{cube,w:0.2,h:3,d:10} @ (-6,1.5,0) material{#f0ebe0}
+    ceiling:    geometry{plane,w:12,h:10}      @ (0,3,0,rx:90) material{#ffffff}
+    counter-top-n-left:  geometry{cube,w:4,h:0.05,d:0.6} @ (-3,0.9,-4.7) material{#e0d8cc}
+    counter-top-n-right: geometry{cube,w:4,h:0.05,d:0.6} @ (3,0.9,-4.7)  material{#e0d8cc}
+  FURNITURE (models):
+    NW(-4,-4): wall-cabinet-left[cabinet,kitchen cabinet,wall mounted,storage]
+    N(0,-4): sink[sink,kitchen sink,basin]
+    NE(4,-4): wall-cabinet-right[cabinet,kitchen cabinet,wall mounted]
+    W(-5,0): counter-left[kitchen counter,counter,base cabinet]
+    C(0,0): kitchen-island[kitchen island,counter,island]
+    E(5,0): counter-right[kitchen counter,counter,base cabinet]
+    SW(-5,4): refrigerator[refrigerator,fridge,kitchen appliance]
+    S(0,4): door[door,wooden,entrance]
+    SE(5,4): stove[stove,oven,cooktop,kitchen]
+    C(-1.5,0.75,0): bar-stool-1[bar stool,stool,kitchen]
+    C(1.5,0.75,0): bar-stool-2[bar stool,stool,kitchen]
+    NE(5,-4,0.9): microwave[microwave,kitchen appliance,oven]
+    NW(-4,-4,0.9): wall-cabinet-nw[cabinet,kitchen,upper cabinet]
+  LIGHTS:
+    C(0,2.8,0): ceiling-light[point,#ffffff,intensity:1.5,distance:20]
+    N(0,2.5,-4): under-cabinet-light[point,#fff0d0,intensity:0.4,distance:6]
+    C(0,2.5,0): island-light[spot,#ffffff,intensity:0.8,distance:8]
   types: furniture(counter,cabinet,stool,island), machine(stove,refrigerator,sink,microwave), lamp
 
 office_study (ground 10×10m, sceneScale=small):
-  NW(-4,-4): bookshelf-left | N(0,-4): wall-art | NE(4,-4): bookshelf-right
-  W(-4,0): filing-cabinet | C(0,0): desk | C(2,0,2): office-chair
-  SW(-4,4): plant | S(0,4): door | SE(4,4): floor-lamp
-  + ceiling-light(0,3,0) + desk-lamp(0.5,0.8,0) + monitor(0,0.8,-0.3)
+  WALLS (primitives):
+    wall-north: geometry{cube,w:10,h:3,d:0.2} @ (0,1.5,-5) material{#eae6de}
+    wall-south: geometry{cube,w:10,h:3,d:0.2} @ (0,1.5, 5) material{#eae6de}
+    wall-east:  geometry{cube,w:0.2,h:3,d:10} @ (5,1.5,0)  material{#e5e0d8}
+    wall-west:  geometry{cube,w:0.2,h:3,d:10} @ (-5,1.5,0) material{#e5e0d8}
+    ceiling:    geometry{plane,w:10,h:10}      @ (0,3,0,rx:90) material{#f8f8f5}
+    window:     geometry{plane,w:1.4,h:1.0}   @ (1,2.1,-4.9,rx:90) material{#1a3a5c,opacity:0.35}
+  FURNITURE (models):
+    NW(-4,-4): bookshelf-left[bookshelf,shelves,books,wooden]
+    N(0,2.2,-4.9): wall-art[picture frame,wall art,painting] geometry{plane,w:0.9,h:0.6} rx:90
+    NE(4,-4): bookshelf-right[bookshelf,shelves,books,wooden]
+    W(-4,0): filing-cabinet[filing cabinet,cabinet,office,drawers]
+    C(0,0): desk[desk,office desk,wooden,large]
+    C(0,0.75,-0.3): monitor[monitor,computer screen,display]
+    C(0.5,0.75,0): desk-lamp[desk lamp,lamp,small,office]
+    C(0,0,0.8): office-chair[office chair,ergonomic,desk chair,swivel]
+    SW(-4,4): plant[plant,potted,indoor,large]
+    S(0,4): door[door,wooden,entrance]
+    SE(4,4): floor-lamp[floor lamp,standing light]
+  LIGHTS:
+    C(0,2.8,0): ceiling-light[point,#fff8f0,intensity:1.3,distance:20]
+    C(0,1.2,0): desk-light[spot,#ffffff,intensity:0.9,distance:10]
+    SW(-4,1.5,4): ambient-fill[point,#ffe0bb,intensity:0.3,distance:12]
   types: furniture(desk,chair,bookshelf,cabinet), machine(monitor), lamp, prop(plant,wall_art), door
 
 RULES:
 - Each structure needs a type, zone, and transform (position in world coordinates).
-- Do NOT include geometry/material/children — the engine generates those from the structure type.
+- Use geometry+material for walls/ceilings/floors/openings. Use modelTags for all real-world objects. NEVER both on same structure.
 - Use 4-8 lights distributed across zones with type="light" and lightProps.
 - Indoor rooms (bedroom, living room, kitchen, office): MUST use the matching template. Minimum 20 structures.
 - Other scenes: Minimum 15 top-level structures across at least 6 different zones.
