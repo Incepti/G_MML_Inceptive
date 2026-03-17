@@ -87,7 +87,11 @@ function Titlebar() {
 // ─── Library Panel ───────────────────────────────────────────────────────────
 function LibraryPanel() {
   const handleInsertAsset = useCallback((asset: EnvironmentAsset) => {
-    const snippet = `<m-model id="${asset.id}" src="${asset.modelUrl}" x="0" y="0" z="0" sx="${asset.defaultScale}" sy="${asset.defaultScale}" sz="${asset.defaultScale}"></m-model>`;
+    // Use "lib-" prefix + short random suffix so library models never collide
+    // with blueprint structure IDs and are always detected as orphans.
+    const uid = Math.random().toString(36).slice(2, 7);
+    const libId = `lib-${asset.id}-${uid}`;
+    const snippet = `<m-model id="${libId}" src="${asset.modelUrl}" x="0" y="0" z="0" sx="${asset.defaultScale}" sy="${asset.defaultScale}" sz="${asset.defaultScale}"></m-model>`;
     const state = useEditorStore.getState();
     const proj  = state.projects.find((p) => p.id === state.activeProjectId);
     const mml   = proj?.files.find((f) => f.name === "scene.mml");

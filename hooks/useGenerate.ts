@@ -28,6 +28,9 @@ function getBlueprintIds(blueprint: BlueprintJSON): Set<string> {
 /**
  * Extract m-model / m-character elements from MML whose IDs are NOT tracked
  * in the blueprint. These are library-inserted models that bypass the blueprint.
+ *
+ * IDs starting with "lib-" are ALWAYS treated as orphans regardless of
+ * blueprintIds — they are library-inserted and must never be lost.
  */
 function extractOrphanElements(mml: string, blueprintIds: Set<string>): string[] {
   const orphans: string[] = [];
@@ -41,8 +44,13 @@ function extractOrphanElements(mml: string, blueprintIds: Set<string>): string[]
     while ((match = re.exec(mml)) !== null) {
       const attrs = match[2] ?? "";
       const idMatch = attrs.match(/\bid="([^"]+)"/);
-      if (idMatch && !blueprintIds.has(idMatch[1])) {
-        orphans.push(match[0]);
+      if (idMatch) {
+        const id = idMatch[1];
+        // lib-* IDs are ALWAYS orphans (library-inserted)
+        // Other IDs are orphans if not in the blueprint
+        if (id.startsWith("lib-") || !blueprintIds.has(id)) {
+          orphans.push(match[0]);
+        }
       }
     }
   }
@@ -56,6 +64,41 @@ function reinjectOrphans(mml: string, orphans: string[]): string {
   const closeIdx = mml.lastIndexOf("</m-group>");
   if (closeIdx !== -1) return mml.slice(0, closeIdx) + block + "\n" + mml.slice(closeIdx);
   return mml + block;
+}
+
+/**
+ * When the user mentioned "otherside" but the AI didn't put "otherside" as the
+ * first modelTag, fix it automatically. This ensures the asset resolver routes
+ * to the Otherside catalog instead of GCS.
+ */
+function enforceOthersideTags(blueprint: BlueprintJSON, userMessage: string): BlueprintJSON {
+  if (!/\botherside\b/i.test(userMessage)) return blueprint;
+
+  const fixStructures = (structures: BlueprintJSON["scene"]["structures"]): BlueprintJSON["scene"]["structures"] => {
+    return structures.map((s) => {
+      const fixed = { ...s };
+      // If structure has modelTags but doesn't start with "otherside", prepend it
+      if (fixed.modelTags && fixed.modelTags.length > 0 && fixed.modelTags[0]?.toLowerCase() !== "otherside") {
+        fixed.modelTags = ["otherside", ...fixed.modelTags];
+      }
+      // If structure has no modelTags but needs a model (no geometry, not a light), add otherside tags
+      if (!fixed.modelTags && !fixed.geometry && !fixed.lightProps && fixed.type !== "light") {
+        fixed.modelTags = ["otherside", fixed.type];
+      }
+      if (fixed.children?.length) {
+        fixed.children = fixStructures(fixed.children);
+      }
+      return fixed;
+    });
+  };
+
+  return {
+    ...blueprint,
+    scene: {
+      ...blueprint.scene,
+      structures: fixStructures(blueprint.scene.structures),
+    },
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,9 +242,24 @@ export function useGenerate() {
 
         // 5. Handle NEW_SCENE
         if (data.type === "NEW_SCENE") {
-          const blueprint = data.blueprint as BlueprintJSON;
-          const generatedMml = (data.generatedMml as string) || generateMml(blueprint);
-          const { fixedMml, issues } = validateAndFixMml(generatedMml, store.lastValidMml);
+          const blueprint = enforceOthersideTags(data.blueprint as BlueprintJSON, userMessage);
+          // If we enforced otherside tags, regenerate MML from the fixed blueprint
+          // (server-generated MML used pre-fix tags and resolved wrong models)
+          const othersideEnforced = /\botherside\b/i.test(userMessage);
+          const generatedMml = (!othersideEnforced && data.generatedMml as string) || generateMml(blueprint);
+
+          // ── Preserve library-inserted elements (same logic as PATCH handler) ──
+          // Library models live in scene.mml but are NOT part of any blueprint.
+          // Without this, every NEW_SCENE generation wipes them out.
+          const oldMmlForOrphans = mmlFile?.content || "";
+          const newBlueprintIds = getBlueprintIds(blueprint);
+          const orphans = extractOrphanElements(oldMmlForOrphans, newBlueprintIds);
+          if (orphans.length > 0) {
+            store.addLog({ type: "info", message: `[NEW_SCENE] preserving ${orphans.length} library-inserted element(s)` });
+          }
+          const mmlWithOrphans = reinjectOrphans(generatedMml, orphans);
+
+          const { fixedMml, issues } = validateAndFixMml(mmlWithOrphans, store.lastValidMml);
 
           store.addLog({ type: "ai", message: `[AI] blueprint_generated: ${blueprint.scene.structures.length} structures` });
           store.addLog({ type: "info", message: `[GEN] mml_generated: ${fixedMml.length} chars` });
@@ -315,7 +373,7 @@ export function useGenerate() {
           }
 
           // Builder pipeline is now internal to generateMml()
-          const newBlueprint = patchResult.blueprint;
+          const newBlueprint = enforceOthersideTags(patchResult.blueprint, userMessage);
 
           // Log blueprint state after patch
           store.addLog({ type: "info", message: `[PATCH] blueprint_after: ${newBlueprint.scene.structures.length} structures, title="${newBlueprint.meta.title}"` });
