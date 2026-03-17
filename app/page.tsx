@@ -205,7 +205,7 @@ export default function StudioPage() {
   // Library ↔ Viewport  (px) — use getState() to avoid stale closure during drag
   const handleLibraryResize = useCallback((delta: number) => {
     const { panelSizes: ps, setPanelSizes: sps } = useEditorStore.getState();
-    sps({ libraryWidth: Math.max(200, Math.min(600, ps.libraryWidth + delta)) });
+    sps({ libraryWidth: Math.max(220, Math.min(800, ps.libraryWidth + delta)) });
   }, []);
 
   // Top row ↔ Bottom row  (%)

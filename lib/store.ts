@@ -19,7 +19,7 @@ interface PanelSizes {
 
 const DEFAULT_PANEL_SIZES: PanelSizes = {
   sidebarWidth: 320,
-  libraryWidth: 280,
+  libraryWidth: 320,
   topRowPercent: 55,
   editorPercent: 55,
 };
