@@ -24,7 +24,8 @@ FORBIDDEN TAGS (hard failure):
 FORBIDDEN ATTRIBUTES: cast-shadows, receive-shadows, penumbra, shadow, onclick
 LIGHT TYPES: point | directional | spot — NEVER "ambient"
 LABEL ATTRIBUTE: content= only — NEVER text=
-HARD CAPS: Lights ≤ 8 | Models ≤ 100 | Entities ≤ 500
+CAPS: Lights ≤ 8 | Models — no hard limit, use as many as needed | Primitives — no hard limit | Entities — no hard limit
+GOAL: Build detailed, realistic scenes. More objects = better. Do NOT hold back.
 NO fabricated .glb URLs — use modelTags only, the resolver picks the model.
 NO animation unless the user explicitly requests it.
 NEVER set both geometry AND modelTags on the same structure.
@@ -188,14 +189,16 @@ Derive lighting from the space — do not guess randomly.
   Max 8 lights total. Never intensity > 3.0. Never y < 1.0.
 
 ━━━ STEP 7: DENSITY REQUIREMENTS ━━━
-Every scene must feel inhabited and complete.
+Every scene must feel inhabited, detailed, and complete. More is better.
 
-  Small indoor room (≤15m):  minimum 6 walls/shell + 10 objects + 3 lights = 19+ structures
-  Large indoor space:         minimum 6 shell + 15 objects + 4 lights = 25+ structures
-  Outdoor small:              minimum 12 structures across 5+ zones
-  Outdoor medium/large:       minimum 20 structures across 7+ zones
+  Small indoor room (≤15m):  minimum 6 walls/shell + 15 objects + 3 lights = 24+ structures
+  Large indoor space:         minimum 6 shell + 25 objects + 5 lights = 36+ structures
+  Outdoor small:              minimum 20 structures across 5+ zones
+  Outdoor medium/large:       minimum 35 structures across 7+ zones
 
-If under minimum — add more contextually appropriate objects until the scene feels real.
+ALWAYS add more detail: books on shelves, items on tables, plants in corners,
+rugs on floors, art on walls, tools on workbenches, dishes in kitchens, etc.
+A room with just the big furniture pieces feels empty — fill it with life.
 `;
 
 // ─── OBJECT MODE PROMPT ───────────────────────────────────────────────────────
@@ -248,7 +251,7 @@ DETECTED ARCHETYPE: ${classification.archetype}
       { "name": "<part name>", "role": "primary|secondary|support|detail", "shapeHint": "<hint>", "symmetry": false }
     ],
     "meta": { "title": "<object name>", "sceneScale": "small", "seed": "<6-char prompt hash>" },
-    "budgets": { "maxLights": 3, "maxModels": 10, "maxEntities": 100 },
+    "budgets": { "maxLights": 6, "maxModels": 50, "maxEntities": 500 },
     "scene": {
       "rootId": "root",
       "structures": [
@@ -310,7 +313,7 @@ Zones describe where in the scene a structure lives. Always assign a zone.
     "style": { "theme": "<medieval|industrial|nature|scifi|organic|domestic|fantasy|horror|neutral>", "detailLevel": "high" },
     "composition": { "focus": "layout", "symmetry": false },
     "meta": { "title": "<scene title>", "sceneScale": "small|medium|large", "seed": "<6-char hash>" },
-    "budgets": { "maxLights": 8, "maxModels": 100, "maxEntities": 500 },
+    "budgets": { "maxLights": 8, "maxModels": 200, "maxEntities": 1000 },
     "scene": {
       "rootId": "root",
       "ground": { "type": "plane", "width": 12, "height": 10, "color": "#3a3a2a", "y": 0 },

@@ -55,7 +55,7 @@ export type MMLForbiddenTag = (typeof MML_FORBIDDEN_TAGS)[number];
 
 // ─── MML Caps (Final Brain V3 — authoritative) ────────────────────────────
 export const MML_CAPS = {
-  MAX_MODELS: 100,
+  MAX_MODELS: 500,
   MAX_LIGHTS: 8,
   MAX_PHYSICS_BODIES: 150,
   MAX_PARTICLES: 800,

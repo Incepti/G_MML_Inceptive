@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       system: systemPrompt,
       messages,
       temperature: 0.3,
-      max_tokens: 16384,
+      max_tokens: 32768,
     });
 
     const textBlock = response.content.find((b) => b.type === "text");
