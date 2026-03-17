@@ -383,11 +383,13 @@ function SelectionProperties() {
       state.updateBlueprintTransform(id, newT);
     }
     // 2. Patch scene.mml directly (works for all objects)
+    // NOTE: isTransformPatch=false so the viewport reloads MML and updates Three.js.
+    // (isTransformPatch=true is only for gizmo changes where Three.js already has correct positions)
     const proj = state.projects.find((p) => p.id === state.activeProjectId);
     const mmlFile = proj?.files.find((f) => f.name === "scene.mml");
     if (proj && mmlFile) {
       const patched = patchMmlTransform(mmlFile.content, id, newT);
-      state.updateFileContent(proj.id, mmlFile.id, patched, true);
+      state.updateFileContent(proj.id, mmlFile.id, patched);
     }
   }, []);
 
