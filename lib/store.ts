@@ -12,15 +12,15 @@ import type { BlueprintJSON, ValidationIssue, PatchOperation } from "@/types/blu
 // ─── Panel Layout ─────────────────────────────────────────────────────────
 interface PanelSizes {
   sidebarWidth: number;      // right sidebar width in px
+  libraryWidth: number;      // left library panel width in px
   topRowPercent: number;     // vertical split: top row height %
-  viewerPercent: number;     // top row horizontal split: scene editor %
   editorPercent: number;     // bottom row horizontal split: code editor %
 }
 
 const DEFAULT_PANEL_SIZES: PanelSizes = {
   sidebarWidth: 320,
+  libraryWidth: 220,
   topRowPercent: 55,
-  viewerPercent: 50,
   editorPercent: 55,
 };
 

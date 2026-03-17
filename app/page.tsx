@@ -106,21 +106,11 @@ function Titlebar() {
   );
 }
 
-// ─── Scene Editor Panel (top-left) ────────────────────────────────────────
-function SceneEditorPanel() {
-  const [leftTab, setLeftTab] = useState<"scene" | "library">("scene");
-
-  // Reactive Zustand selector — re-renders whenever MML content changes
-  const mml = useEditorStore((s) => {
-    const project = s.projects.find((p) => p.id === s.activeProjectId);
-    return project?.files.find((f) => f.name === "scene.mml")?.content || "";
-  });
-
+// ─── Library Panel (left) ───────────────────────────────────────────────────
+function LibraryPanel() {
   const handleInsertAsset = useCallback((asset: EnvironmentAsset) => {
     const snippet = `<m-model id="${asset.id}" src="${asset.modelUrl}" x="0" y="0" z="0" sx="${asset.defaultScale}" sy="${asset.defaultScale}" sz="${asset.defaultScale}"></m-model>`;
 
-    // Always read from the store directly — the render-time closure for
-    // mmlFile.content can be stale after viewport gizmo moves.
     const state = useEditorStore.getState();
     const freshProject = state.projects.find((p) => p.id === state.activeProjectId);
     const freshMmlFile = freshProject?.files.find((f) => f.name === "scene.mml");
@@ -139,76 +129,32 @@ function SceneEditorPanel() {
   }, []);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Tab bar */}
-      <div className="flex shrink-0 border-b border-editor-border">
-        {(["scene", "library"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setLeftTab(tab)}
-            className={`flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors border-b-2 ${
-              leftTab === tab
-                ? "border-editor-accent text-editor-accent"
-                : "border-transparent text-editor-text-muted hover:text-editor-text"
-            }`}
-          >
-            {tab === "scene" ? "Scene" : "Library"}
-          </button>
-        ))}
-      </div>
-
-      {/* Content — ThreeViewport always mounted (never unmount = no renderer re-init) */}
-      <div className="flex-1 overflow-hidden relative">
-        <div className={`w-full h-full ${leftTab === "scene" ? "block" : "hidden"}`}>
-          <ThreeViewport mmlHtml={mml} />
-        </div>
-        {leftTab === "library" && (
-          <div className="w-full h-full overflow-hidden">
-            <AssetLibrary onInsertAsset={handleInsertAsset} />
-          </div>
-        )}
-      </div>
+    <div className="flex flex-col h-full overflow-hidden border-r border-editor-border">
+      <AssetLibrary onInsertAsset={handleInsertAsset} />
     </div>
   );
 }
 
-// ─── Play Viewer Panel (top-right) ────────────────────────────────────────
-function PlayViewerPanel() {
-  // Reactive selector — updates whenever MML changes
+// ─── Viewport Panel ─────────────────────────────────────────────────────────
+function ViewportPanel() {
   const mml = useEditorStore((s) => {
     const project = s.projects.find((p) => p.id === s.activeProjectId);
     return project?.files.find((f) => f.name === "scene.mml")?.content || "";
   });
 
-  // Debounce play viewport updates so it doesn't compete with the scene viewport
-  const [debouncedMml, setDebouncedMml] = useState(mml);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedMml(mml), 600);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [mml]);
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center px-3 py-1 border-b border-editor-border shrink-0">
-        <span className="text-[10px] text-editor-text-muted uppercase tracking-wider font-semibold">
-          Play
-        </span>
-      </div>
       <div className="flex-1 overflow-hidden relative">
-        <ThreeViewport mmlHtml={debouncedMml} isPlayMode={true} />
+        <ThreeViewport mmlHtml={mml} />
       </div>
     </div>
   );
 }
 
-// ─── Code Editor Panel (bottom-left) ──────────────────────────────────────
+// ─── Code Editor Panel (bottom-left) ────────────────────────────────────────
 function CodeEditorPanel() {
   const { activeFileId, updateFileContent, setValidation, lastValidation, addLog } = useEditorStore();
 
-  // Reactive selectors — re-render when file content changes (e.g. from gizmo patch)
   const file = useEditorStore((s) => {
     const project = s.projects.find((p) => p.id === s.activeProjectId);
     return project?.files.find((f) => f.id === s.activeFileId) || null;
@@ -223,13 +169,11 @@ function CodeEditorPanel() {
       if (!project || !file) return;
       updateFileContent(project.id, file.id, value);
 
-      // Auto-validate after 1s
       if (validateTimeoutRef.current) clearTimeout(validateTimeoutRef.current);
       validateTimeoutRef.current = setTimeout(async () => {
         const mmlFile = project.files.find((f) => f.name === "scene.mml");
         const jsFile = project.files.find((f) => f.name === "scene.js");
-        const mmlContent =
-          file.name === "scene.mml" ? value : mmlFile?.content;
+        const mmlContent = file.name === "scene.mml" ? value : mmlFile?.content;
         const jsContent = file.name === "scene.js" ? value : jsFile?.content;
         if (!mmlContent) return;
 
@@ -312,68 +256,61 @@ function CodeEditorPanel() {
         />
       </div>
 
-      {/* Diff Overlay */}
       <DiffViewer />
     </div>
   );
 }
 
-// ─── Main Page ─────────────────────────────────────────────────────────────
+// ─── Main Page ───────────────────────────────────────────────────────────────
 export default function StudioPage() {
   const [mounted, setMounted] = useState(false);
   const { panelSizes, setPanelSizes } = useEditorStore();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
-  // Top row: horizontal split between Scene Editor and Play Viewer
-  const handleTopHorizontalResize = useCallback(
+  // Library ↔ Viewport horizontal split (px)
+  const handleLibraryResize = useCallback(
     (delta: number) => {
-      const container = document.querySelector(".studio-top-row");
-      if (!container) return;
-      const totalWidth = container.clientWidth;
-      const percentDelta = (delta / totalWidth) * 100;
       setPanelSizes({
-        viewerPercent: Math.max(25, Math.min(75, panelSizes.viewerPercent + percentDelta)),
+        libraryWidth: Math.max(160, Math.min(480, panelSizes.libraryWidth + delta)),
       });
     },
-    [panelSizes.viewerPercent, setPanelSizes]
+    [panelSizes.libraryWidth, setPanelSizes]
   );
 
-  // Vertical split between top row and bottom row
+  // Top row ↔ Bottom row vertical split (%)
   const handleVerticalResize = useCallback(
     (delta: number) => {
-      const container = document.querySelector(".studio-main");
+      const container = document.querySelector(".studio-main") as HTMLElement | null;
       if (!container) return;
       const totalHeight = container.clientHeight;
       const percentDelta = (delta / totalHeight) * 100;
       setPanelSizes({
-        topRowPercent: Math.max(25, Math.min(75, panelSizes.topRowPercent + percentDelta)),
+        topRowPercent: Math.max(20, Math.min(80, panelSizes.topRowPercent + percentDelta)),
       });
     },
     [panelSizes.topRowPercent, setPanelSizes]
   );
 
-  // Bottom row: horizontal split between Code Editor and Debug Logs
+  // Code Editor ↔ Logs horizontal split (%)
   const handleBottomHorizontalResize = useCallback(
     (delta: number) => {
-      const container = document.querySelector(".studio-bottom-row");
+      const container = document.querySelector(".studio-bottom-row") as HTMLElement | null;
       if (!container) return;
       const totalWidth = container.clientWidth;
       const percentDelta = (delta / totalWidth) * 100;
       setPanelSizes({
-        editorPercent: Math.max(25, Math.min(75, panelSizes.editorPercent + percentDelta)),
+        editorPercent: Math.max(20, Math.min(80, panelSizes.editorPercent + percentDelta)),
       });
     },
     [panelSizes.editorPercent, setPanelSizes]
   );
 
-  // Sidebar width resize
+  // Right sidebar width (px)
   const handleSidebarResize = useCallback(
     (delta: number) => {
       setPanelSizes({
-        sidebarWidth: Math.max(250, Math.min(500, panelSizes.sidebarWidth - delta)),
+        sidebarWidth: Math.max(240, Math.min(520, panelSizes.sidebarWidth - delta)),
       });
     },
     [panelSizes.sidebarWidth, setPanelSizes]
@@ -393,30 +330,33 @@ export default function StudioPage() {
     <div className="flex flex-col h-screen overflow-hidden">
       <Titlebar />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Main 2x2 grid */}
-        <div className="flex-1 flex flex-col overflow-hidden studio-main">
-          {/* Top row: Scene Editor | Play Viewer */}
+      <div className="flex flex-1 overflow-hidden min-h-0">
+
+        {/* ── Left Library Panel ─────────────────────────────────────────── */}
+        <div
+          className="shrink-0 overflow-hidden"
+          style={{ width: panelSizes.libraryWidth }}
+        >
+          <LibraryPanel />
+        </div>
+
+        <ResizeHandle direction="vertical" onResize={handleLibraryResize} />
+
+        {/* ── Centre: Viewport (top) + Code/Logs (bottom) ───────────────── */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 studio-main">
+
+          {/* Top: Viewport */}
           <div
-            className="flex overflow-hidden studio-top-row"
+            className="overflow-hidden"
             style={{ height: `${panelSizes.topRowPercent}%` }}
           >
-            <div
-              className="overflow-hidden border-r border-editor-border"
-              style={{ width: `${panelSizes.viewerPercent}%` }}
-            >
-              <SceneEditorPanel />
-            </div>
-            <ResizeHandle direction="vertical" onResize={handleTopHorizontalResize} />
-            <div className="flex-1 overflow-hidden">
-              <PlayViewerPanel />
-            </div>
+            <ViewportPanel />
           </div>
 
           <ResizeHandle direction="horizontal" onResize={handleVerticalResize} />
 
-          {/* Bottom row: Code Editor | Debug Logs */}
-          <div className="flex-1 flex overflow-hidden studio-bottom-row border-t border-editor-border">
+          {/* Bottom: Code Editor | Logs */}
+          <div className="flex-1 flex overflow-hidden min-h-0 border-t border-editor-border studio-bottom-row">
             <div
               className="overflow-hidden border-r border-editor-border"
               style={{ width: `${panelSizes.editorPercent}%` }}
@@ -424,7 +364,7 @@ export default function StudioPage() {
               <CodeEditorPanel />
             </div>
             <ResizeHandle direction="vertical" onResize={handleBottomHorizontalResize} />
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden min-w-0">
               <LogsPanel />
             </div>
           </div>
@@ -432,16 +372,15 @@ export default function StudioPage() {
 
         <ResizeHandle direction="vertical" onResize={handleSidebarResize} />
 
-        {/* Right Sidebar */}
+        {/* ── Right Sidebar ──────────────────────────────────────────────── */}
         <div
-          style={{ width: panelSizes.sidebarWidth }}
           className="shrink-0 overflow-hidden"
+          style={{ width: panelSizes.sidebarWidth }}
         >
           <RightSidebar />
         </div>
       </div>
 
-      {/* Settings Modal */}
       <SettingsModal />
     </div>
   );
