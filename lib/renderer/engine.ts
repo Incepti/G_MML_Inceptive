@@ -64,6 +64,7 @@ export class MMLRenderer {
   private transformControls: TransformControls;
   private gltfLoader: GLTFLoader;
   private objectMap: SceneObjectMap = new Map();
+  private reverseMap: Map<THREE.Object3D, string> = new Map(); // O(1) object→id lookup
   private animationFrameId: number | null = null;
   private options: RendererOptions;
   private mixers: THREE.AnimationMixer[] = [];
@@ -81,6 +82,10 @@ export class MMLRenderer {
   private selectionOutline: THREE.BoxHelper | null = null;
   private onSelectionChange: SelectionCallback | null = null;
   private onTransformChange: TransformChangeCallback | null = null;
+  private onDeleteObject: ((id: string) => void) | null = null;
+
+  // Click vs drag detection — ignore clicks that were actually orbit drags
+  private pointerDownPos: { x: number; y: number } | null = null;
 
   constructor(canvas: HTMLCanvasElement, options?: Partial<RendererOptions>) {
     this.options = { ...DEFAULT_RENDERER_OPTIONS, ...options };
@@ -146,8 +151,12 @@ export class MMLRenderer {
     // ── Transform Controls (gizmo) ──────────────────────────────────────
     this.transformControls = new TransformControls(this.camera, canvas);
     this.transformControls.name = "__editor_gizmo__";
-    this.transformControls.setSize(1.1);
-    this.transformControls.setSpace("local"); // local space = predictable per-object axes
+    this.transformControls.setSize(0.9);
+    this.transformControls.setSpace("local");
+    // Snap settings for smooth, predictable transforms
+    this.transformControls.setTranslationSnap(0.05);   // 5cm grid
+    this.transformControls.setRotationSnap(THREE.MathUtils.degToRad(5)); // 5° steps
+    this.transformControls.setScaleSnap(0.02);          // 2% steps
     this.scene.add(this.transformControls);
 
     // Disable orbit while dragging gizmo
@@ -179,8 +188,15 @@ export class MMLRenderer {
 
     // ── Raycaster ────────────────────────────────────────────────────────
     this.raycaster = new THREE.Raycaster();
+    this.raycaster.params.Line = { threshold: 0.2 };
+    this.raycaster.params.Points = { threshold: 0.2 };
     this.pointer = new THREE.Vector2();
     this.canvas = canvas;
+
+    // Track pointer for click vs drag detection
+    canvas.addEventListener("pointerdown", (e) => {
+      this.pointerDownPos = { x: e.clientX, y: e.clientY };
+    });
 
     this.gltfLoader = new GLTFLoader();
   }
@@ -300,6 +316,7 @@ export class MMLRenderer {
       this.scene.remove(root);
     }
     this.objectMap.clear();
+    this.reverseMap.clear();
   }
 
   private disposeObject(obj: THREE.Object3D) {
@@ -341,6 +358,7 @@ export class MMLRenderer {
 
       if (node.attributes["id"]) {
         this.objectMap.set(node.attributes["id"], obj);
+        this.reverseMap.set(obj, node.attributes["id"]);
       }
 
       // Process children, including m-attr-anim
@@ -767,9 +785,63 @@ export class MMLRenderer {
   }
 
   /**
+   * Set callback for when the user deletes a selected object.
+   */
+  setOnDeleteObject(cb: ((id: string) => void) | null) {
+    this.onDeleteObject = cb;
+  }
+
+  /**
+   * Delete the currently selected object from the Three.js scene.
+   * Returns the deleted object's id, or null if nothing was selected.
+   */
+  deleteSelectedObject(): string | null {
+    if (!this.selectedObjectId || !this.selectedObject) return null;
+    const id = this.selectedObjectId;
+    const obj = this.selectedObject;
+
+    // Detach gizmo and clear selection
+    this.transformControls.detach();
+    if (this.selectionOutline) {
+      this.scene.remove(this.selectionOutline);
+      this.selectionOutline.dispose();
+      this.selectionOutline = null;
+    }
+    this.selectedObject = null;
+    this.selectedObjectId = null;
+
+    // Remove from scene
+    if (obj.parent) obj.parent.remove(obj);
+    this.disposeObject(obj);
+
+    // Remove from maps
+    this.objectMap.delete(id);
+    this.reverseMap.delete(obj);
+    this.lastNodeTags.delete(id);
+
+    // Notify
+    if (this.onSelectionChange) this.onSelectionChange(null);
+    if (this.onDeleteObject) this.onDeleteObject(id);
+
+    return id;
+  }
+
+  /**
    * Handle a click event on the canvas — raycast to pick MML objects.
+   * Ignores clicks that were actually orbit drags (pointer moved > 5px).
    */
   handleClick(event: MouseEvent) {
+    // Reject click if it was a drag (orbit/pan gesture)
+    if (this.pointerDownPos) {
+      const dx = event.clientX - this.pointerDownPos.x;
+      const dy = event.clientY - this.pointerDownPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 5) {
+        this.pointerDownPos = null;
+        return;
+      }
+    }
+    this.pointerDownPos = null;
+
     const rect = this.canvas.getBoundingClientRect();
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -783,19 +855,18 @@ export class MMLRenderer {
     const intersects = this.raycaster.intersectObjects(mmlRoot.children, true);
 
     if (intersects.length > 0) {
-      // Walk up to find the object that has an MML id in objectMap
-      let hit = intersects[0].object;
+      // Walk up the hierarchy to find the nearest MML-registered parent
+      // Uses O(1) reverseMap lookup instead of iterating all objectMap entries
+      let hit: THREE.Object3D | null = intersects[0].object;
       let foundId: string | null = null;
 
       while (hit && hit !== mmlRoot) {
-        for (const [id, obj] of this.objectMap) {
-          if (id !== "__mml_root__" && obj === hit) {
-            foundId = id;
-            break;
-          }
+        const id = this.reverseMap.get(hit);
+        if (id && id !== "__mml_root__") {
+          foundId = id;
+          break;
         }
-        if (foundId) break;
-        hit = hit.parent!;
+        hit = hit.parent;
       }
 
       if (foundId) {

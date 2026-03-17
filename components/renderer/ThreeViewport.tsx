@@ -64,6 +64,39 @@ export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProp
           }
         });
 
+        // Wire up delete: remove from MML when engine deletes a 3D object
+        renderer.setOnDeleteObject((id) => {
+          const state = useEditorStore.getState();
+          const proj = state.projects.find((p) => p.id === state.activeProjectId);
+          const mmlFile = proj?.files.find((f) => f.name === "scene.mml");
+          if (!proj || !mmlFile) return;
+
+          // Remove the element from MML text by id
+          const mml = mmlFile.content;
+          // Match full element (open+close or self-closing) by id
+          const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const fullRe = new RegExp(`\\s*<(m-\\w+)([^>]*\\bid="${escaped}"[^>]*)>[\\s\\S]*?<\\/\\1>`, "g");
+          const selfRe = new RegExp(`\\s*<m-\\w+[^>]*\\bid="${escaped}"[^>]*\\/>`, "g");
+          let patched = mml.replace(fullRe, "");
+          patched = patched.replace(selfRe, "");
+          if (patched !== mml) {
+            state.updateFileContent(proj.id, mmlFile.id, patched);
+            // Also remove from blueprint if tracked
+            const bp = state.currentBlueprint;
+            if (bp) {
+              const removeFromStructures = (structures: typeof bp.scene.structures): typeof bp.scene.structures =>
+                structures
+                  .filter((s) => s.id !== id)
+                  .map((s) => s.children?.length ? { ...s, children: removeFromStructures(s.children) } : s);
+              state.setBlueprint({
+                ...bp,
+                scene: { ...bp.scene, structures: removeFromStructures(bp.scene.structures) },
+              });
+            }
+          }
+          state.setSelectedObjectId(null);
+        });
+
         renderer.setOnTransformChange((id, transform) => {
           updateBlueprintTransform(id, transform);
           pendingTransforms.current.set(id, transform);
@@ -170,6 +203,12 @@ export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProp
         case "w": setTransformMode("translate"); break;
         case "e": setTransformMode("rotate"); break;
         case "r": setTransformMode("scale"); break;
+        case "delete":
+        case "backspace": {
+          // Delete selected object from scene
+          rendererRef.current?.deleteSelectedObject();
+          break;
+        }
         case "escape": {
           rendererRef.current?.deselectObject();
           setSelectedObjectId(null);
@@ -215,8 +254,17 @@ export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProp
       )}
 
       {!isPlayMode && selectedObjectId && (
-        <div className="absolute bottom-12 left-3 text-xs text-blue-300 bg-black/50 px-2 py-1 rounded">
-          Selected: <span className="font-mono">{selectedObjectId}</span>
+        <div className="absolute bottom-12 left-3 flex items-center gap-2">
+          <div className="text-xs text-blue-300 bg-black/50 px-2 py-1 rounded">
+            Selected: <span className="font-mono">{selectedObjectId}</span>
+          </div>
+          <button
+            onClick={() => rendererRef.current?.deleteSelectedObject()}
+            className="text-xs bg-red-900/80 hover:bg-red-700 text-red-200 px-2 py-1 rounded transition-colors"
+            title="Delete selected object (Del)"
+          >
+            Delete
+          </button>
         </div>
       )}
 
