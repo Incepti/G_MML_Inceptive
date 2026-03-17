@@ -159,13 +159,16 @@ export async function POST(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════
     console.log(`[/api/ai] calling ${llmModel}, mode=${mode}, promptSize=${systemPrompt.length} chars`);
 
-    const response = await anthropic.messages.create({
+    // Use streaming to avoid Anthropic SDK 10-minute timeout on long generations
+    const stream = anthropic.messages.stream({
       model: llmModel,
       system: systemPrompt,
       messages,
       temperature: 0.3,
       max_tokens: 32768,
     });
+
+    const response = await stream.finalMessage();
 
     const textBlock = response.content.find((b) => b.type === "text");
     const rawText = textBlock?.text || "";
