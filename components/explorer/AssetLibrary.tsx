@@ -441,96 +441,107 @@ export function AssetLibrary({ onInsertAsset }: AssetLibraryProps) {
       {/* ── Subcategory/category filter ── */}
       {libraryTab === "otherside" ? (
         <div style={{
-          display: "flex", flexWrap: "wrap", gap: "3px", padding: "6px 8px",
+          display: "flex", flexDirection: "column", gap: "2px", padding: "8px 8px",
           borderBottom: "1px solid #1a1a3a", flexShrink: 0,
-          maxHeight: "90px", overflowY: "auto",
+          maxHeight: "160px", overflowY: "auto",
         }}>
-          <button
-            onClick={() => setOthersideSubcat("all")}
-            style={{
-              padding: "3px 8px", borderRadius: "4px", cursor: "pointer",
-              border: othersideSubcat === "all" ? "1px solid #a855f7" : "1px solid #2a1a4a",
-              background: othersideSubcat === "all" ? "rgba(168,85,247,0.15)" : "#100e2a",
-              color: othersideSubcat === "all" ? "#c084fc" : "#7070aa",
-              fontSize: "10px", fontWeight: othersideSubcat === "all" ? 600 : 400,
-              fontFamily: "inherit", whiteSpace: "nowrap",
-              display: "inline-flex", alignItems: "center", gap: "3px",
-            }}
-          >
-            ⊞ All
-            <span style={{
-              fontSize: "8px", background: othersideSubcat === "all" ? "rgba(168,85,247,0.2)" : "#1a1a3a",
-              borderRadius: "3px", padding: "0 3px", color: "inherit",
-            }}>
-              {OTHERSIDE_CATALOG.length}
-            </span>
-          </button>
-          {OTHERSIDE_SUBCATEGORIES.map((subcat) => {
-            const active = othersideSubcat === subcat;
-            const count = othersideCounts[subcat] ?? 0;
-            return (
-              <button
-                key={subcat}
-                onClick={() => setOthersideSubcat(subcat)}
-                style={{
-                  padding: "3px 8px", borderRadius: "4px", cursor: "pointer",
-                  border: active ? "1px solid #a855f7" : "1px solid #2a1a4a",
-                  background: active ? "rgba(168,85,247,0.15)" : "#100e2a",
-                  color: active ? "#c084fc" : "#7070aa",
-                  fontSize: "10px", fontWeight: active ? 600 : 400,
-                  fontFamily: "inherit", whiteSpace: "nowrap",
-                  display: "inline-flex", alignItems: "center", gap: "3px",
-                  transition: "border-color 0.1s, background 0.1s, color 0.1s",
-                }}
-              >
-                {OTHERSIDE_ICONS[subcat] || "⬡"} {subcat.replace(/_/g, " ")}
-                <span style={{
-                  fontSize: "8px",
-                  background: active ? "rgba(168,85,247,0.2)" : "#1a1a3a",
-                  borderRadius: "3px", padding: "0 3px", color: "inherit",
-                }}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+          <div style={{ fontSize: "9px", color: "#7070aa", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px" }}>
+            Categories
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+            <button
+              onClick={() => setOthersideSubcat("all")}
+              style={{
+                padding: "5px 10px", borderRadius: "6px", cursor: "pointer",
+                border: othersideSubcat === "all" ? "1px solid #a855f7" : "1px solid #2a1a4a",
+                background: othersideSubcat === "all" ? "rgba(168,85,247,0.2)" : "#100e2a",
+                color: othersideSubcat === "all" ? "#c084fc" : "#7070aa",
+                fontSize: "11px", fontWeight: othersideSubcat === "all" ? 600 : 400,
+                fontFamily: "inherit", whiteSpace: "nowrap",
+                display: "inline-flex", alignItems: "center", gap: "4px",
+                transition: "all 0.12s",
+              }}
+            >
+              ⊞ All
+              <span style={{
+                fontSize: "9px", background: othersideSubcat === "all" ? "rgba(168,85,247,0.25)" : "#1a1a3a",
+                borderRadius: "4px", padding: "1px 5px", color: "inherit",
+              }}>
+                {OTHERSIDE_CATALOG.length}
+              </span>
+            </button>
+            {OTHERSIDE_SUBCATEGORIES.map((subcat) => {
+              const active = othersideSubcat === subcat;
+              const count = othersideCounts[subcat] ?? 0;
+              return (
+                <button
+                  key={subcat}
+                  onClick={() => setOthersideSubcat(subcat)}
+                  style={{
+                    padding: "5px 10px", borderRadius: "6px", cursor: "pointer",
+                    border: active ? "1px solid #a855f7" : "1px solid #2a1a4a",
+                    background: active ? "rgba(168,85,247,0.2)" : "#100e2a",
+                    color: active ? "#c084fc" : "#7070aa",
+                    fontSize: "11px", fontWeight: active ? 600 : 400,
+                    fontFamily: "inherit", whiteSpace: "nowrap",
+                    display: "inline-flex", alignItems: "center", gap: "4px",
+                    transition: "all 0.12s",
+                  }}
+                >
+                  {OTHERSIDE_ICONS[subcat] || "⬡"} {subcat.replace(/_/g, " ")}
+                  <span style={{
+                    fontSize: "9px",
+                    background: active ? "rgba(168,85,247,0.25)" : "#1a1a3a",
+                    borderRadius: "4px", padding: "1px 5px", color: "inherit",
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div style={{
-          display: "flex", flexWrap: "wrap", gap: "3px", padding: "6px 8px",
+          display: "flex", flexDirection: "column", gap: "2px", padding: "8px 8px",
           borderBottom: "1px solid #223052", flexShrink: 0,
-          maxHeight: "76px", overflowY: "auto",
+          maxHeight: "160px", overflowY: "auto",
         }}>
-          {GCS_CATEGORIES.map((cat) => {
-            const count = folderCounts[cat.id] ?? 0;
-            if (count === 0 && cat.id !== "all") return null;
-            const active = activeCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                style={{
-                  padding: "3px 8px", borderRadius: "4px", cursor: "pointer",
-                  border: active ? "1px solid #14b8a6" : "1px solid #223052",
-                  background: active ? "rgba(20,184,166,0.15)" : "#0d1326",
-                  color: active ? "#14b8a6" : "#8aa0c4",
-                  fontSize: "10px", fontWeight: active ? 600 : 400,
-                  fontFamily: "inherit", whiteSpace: "nowrap",
-                  display: "inline-flex", alignItems: "center", gap: "3px",
-                  transition: "border-color 0.1s, background 0.1s, color 0.1s",
-                }}
-              >
-                {cat.icon} {cat.label}
-                <span style={{
-                  fontSize: "8px",
-                  background: active ? "rgba(20,184,166,0.2)" : "#121a33",
-                  borderRadius: "3px", padding: "0 3px", color: "inherit",
-                }}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+          <div style={{ fontSize: "9px", color: "#8aa0c4", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px" }}>
+            Categories
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+            {GCS_CATEGORIES.map((cat) => {
+              const count = folderCounts[cat.id] ?? 0;
+              if (count === 0 && cat.id !== "all") return null;
+              const active = activeCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id)}
+                  style={{
+                    padding: "5px 10px", borderRadius: "6px", cursor: "pointer",
+                    border: active ? "1px solid #14b8a6" : "1px solid #223052",
+                    background: active ? "rgba(20,184,166,0.2)" : "#0d1326",
+                    color: active ? "#14b8a6" : "#8aa0c4",
+                    fontSize: "11px", fontWeight: active ? 600 : 400,
+                    fontFamily: "inherit", whiteSpace: "nowrap",
+                    display: "inline-flex", alignItems: "center", gap: "4px",
+                    transition: "all 0.12s",
+                  }}
+                >
+                  {cat.icon} {cat.label}
+                  <span style={{
+                    fontSize: "9px",
+                    background: active ? "rgba(20,184,166,0.25)" : "#121a33",
+                    borderRadius: "4px", padding: "1px 5px", color: "inherit",
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
