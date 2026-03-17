@@ -17,6 +17,10 @@ export interface ClassificationResult {
   needsEnvironmentCatalog: boolean;
   /** True when the user explicitly mentions "otherside" models */
   needsOthersideCatalog: boolean;
+  /** True when the user mentions "geez" — Geez character collection (IDs 0-5555) */
+  needsGeezCollection: boolean;
+  /** Extracted Geez IDs from the prompt (e.g. "1952 geez" → [1952]) */
+  geezIds: number[];
 }
 
 // ── Scene-indicating keywords (places, layouts, explorable environments) ──
@@ -163,6 +167,18 @@ export function classifyRequest(prompt: string): ClassificationResult {
   const needsEnvironmentCatalog = generationMode === "SCENE";
   const needsOthersideCatalog = /\botherside\b/i.test(normalized);
 
+  // 7. Detect Geez collection references (IDs 0-5555)
+  const needsGeezCollection = /\bgeez\b/i.test(normalized);
+  const geezIds: number[] = [];
+  if (needsGeezCollection) {
+    // Match patterns: "1952 geez", "geez 1952", "geez #1952", "geez#1952"
+    const idMatches = normalized.matchAll(/\b(\d{1,4})\s*(?:geez|#)\b|\bgeez\s*#?\s*(\d{1,4})\b/gi);
+    for (const m of idMatches) {
+      const num = parseInt(m[1] || m[2], 10);
+      if (num >= 0 && num <= 5555 && !geezIds.includes(num)) geezIds.push(num);
+    }
+  }
+
   // If we couldn't detect an archetype but it's a scene, set it
   if (detectedArchetype === "unknown" && generationMode === "SCENE") {
     detectedArchetype = "environment";
@@ -180,5 +196,7 @@ export function classifyRequest(prompt: string): ClassificationResult {
     intentType: detectedArchetype, // backwards compat alias
     needsEnvironmentCatalog,
     needsOthersideCatalog,
+    needsGeezCollection,
+    geezIds,
   };
 }

@@ -10,6 +10,7 @@ import { classifyRequest } from "@/lib/classifier";
 import { buildObjectSystemPrompt, buildSceneSystemPrompt, buildPatchSystemPrompt } from "@/lib/llm/prompts";
 import { buildEnvironmentCatalogPrompt } from "@/lib/assets/environment-catalog";
 import { buildOthersideCatalogPrompt } from "@/lib/assets/otherside-prompt";
+import { buildGeezCollectionPrompt } from "@/lib/assets/geez-prompt";
 // Builder + serializer pipeline is now internal to generateMml
 import type { BlueprintJSON, AiResponse, AiNewSceneResponse, AiPatchResponse } from "@/types/blueprint";
 
@@ -104,6 +105,9 @@ export async function POST(req: NextRequest) {
       if (classification.needsOthersideCatalog) {
         systemPrompt += "\n\n" + buildOthersideCatalogPrompt();
       }
+      if (classification.needsGeezCollection) {
+        systemPrompt += "\n\n" + buildGeezCollectionPrompt(classification.geezIds);
+      }
 
       userContent = `USER REQUEST: ${userMessage}`;
       if (currentBlueprint) {
@@ -129,6 +133,10 @@ export async function POST(req: NextRequest) {
       // Inject Otherside catalog whenever user mentions "otherside"
       if (classification.needsOthersideCatalog) {
         systemPrompt += "\n\n" + buildOthersideCatalogPrompt();
+      }
+      // Inject Geez collection info whenever user mentions "geez"
+      if (classification.needsGeezCollection) {
+        systemPrompt += "\n\n" + buildGeezCollectionPrompt(classification.geezIds);
       }
 
       // Static vs dynamic mode addendum

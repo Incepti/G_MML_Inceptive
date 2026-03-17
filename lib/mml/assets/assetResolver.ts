@@ -507,6 +507,19 @@ function resolveStructureAsset(
   }
   if (s.type === "light") return s;
 
+  // ── Geez collection resolution ───────────────────────────────────────────
+  // When the AI's first modelTag is "geez", resolve to the Geez character URL.
+  // The second tag should be the numeric ID (0-5555).
+  if (s.modelTags && s.modelTags[0]?.toLowerCase() === "geez") {
+    const idTag = s.modelTags[1];
+    if (idTag) {
+      const id = parseInt(idTag, 10);
+      if (!isNaN(id) && id >= 0 && id <= 5555) {
+        return { ...s, modelSrc: `https://storage.googleapis.com/geez-public/GLB_MML/${id}.glb` };
+      }
+    }
+  }
+
   // ── Otherside catalog resolution ──────────────────────────────────────────
   // When the AI's first modelTag is "otherside", route to the Otherside catalog
   // instead of the GCS catalog. This fires when the user explicitly asks for

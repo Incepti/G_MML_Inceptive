@@ -101,6 +101,40 @@ function enforceOthersideTags(blueprint: BlueprintJSON, userMessage: string): Bl
   };
 }
 
+/**
+ * When the user mentioned "geez" with a numeric ID, ensure structures that
+ * should be Geez models have the correct modelSrc URL. The AI might forget
+ * to set it or use incorrect URLs.
+ */
+function enforceGeezModels(blueprint: BlueprintJSON, userMessage: string): BlueprintJSON {
+  if (!/\bgeez\b/i.test(userMessage)) return blueprint;
+
+  const fixStructures = (structures: BlueprintJSON["scene"]["structures"]): BlueprintJSON["scene"]["structures"] => {
+    return structures.map((s) => {
+      const fixed = { ...s };
+      // If modelTags start with "geez" and second tag is a number, set modelSrc
+      if (fixed.modelTags && fixed.modelTags[0]?.toLowerCase() === "geez" && fixed.modelTags[1]) {
+        const id = parseInt(fixed.modelTags[1], 10);
+        if (!isNaN(id) && id >= 0 && id <= 5555) {
+          fixed.modelSrc = `https://storage.googleapis.com/geez-public/GLB_MML/${id}.glb`;
+        }
+      }
+      if (fixed.children?.length) {
+        fixed.children = fixStructures(fixed.children);
+      }
+      return fixed;
+    });
+  };
+
+  return {
+    ...blueprint,
+    scene: {
+      ...blueprint.scene,
+      structures: fixStructures(blueprint.scene.structures),
+    },
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 function synthesizeReasoning(data: Record<string, unknown>): ReasoningStep[] {
@@ -242,11 +276,11 @@ export function useGenerate() {
 
         // 5. Handle NEW_SCENE
         if (data.type === "NEW_SCENE") {
-          const blueprint = enforceOthersideTags(data.blueprint as BlueprintJSON, userMessage);
+          const blueprint = enforceGeezModels(enforceOthersideTags(data.blueprint as BlueprintJSON, userMessage), userMessage);
           // If we enforced otherside tags, regenerate MML from the fixed blueprint
           // (server-generated MML used pre-fix tags and resolved wrong models)
-          const othersideEnforced = /\botherside\b/i.test(userMessage);
-          const generatedMml = (!othersideEnforced && data.generatedMml as string) || generateMml(blueprint);
+          const needsClientRegen = /\b(otherside|geez)\b/i.test(userMessage);
+          const generatedMml = (!needsClientRegen && data.generatedMml as string) || generateMml(blueprint);
 
           // ── Preserve library-inserted elements (same logic as PATCH handler) ──
           // Library models live in scene.mml but are NOT part of any blueprint.
@@ -373,7 +407,7 @@ export function useGenerate() {
           }
 
           // Builder pipeline is now internal to generateMml()
-          const newBlueprint = enforceOthersideTags(patchResult.blueprint, userMessage);
+          const newBlueprint = enforceGeezModels(enforceOthersideTags(patchResult.blueprint, userMessage), userMessage);
 
           // Log blueprint state after patch
           store.addLog({ type: "info", message: `[PATCH] blueprint_after: ${newBlueprint.scene.structures.length} structures, title="${newBlueprint.meta.title}"` });
