@@ -9,6 +9,7 @@ import { validateLayout } from "@/lib/layout/validator";
 import { classifyRequest } from "@/lib/classifier";
 import { buildObjectSystemPrompt, buildSceneSystemPrompt, buildPatchSystemPrompt } from "@/lib/llm/prompts";
 import { buildEnvironmentCatalogPrompt } from "@/lib/assets/environment-catalog";
+import { buildOthersideCatalogPrompt } from "@/lib/assets/otherside-prompt";
 // Builder + serializer pipeline is now internal to generateMml
 import type { BlueprintJSON, AiResponse, AiNewSceneResponse, AiPatchResponse } from "@/types/blueprint";
 
@@ -100,6 +101,9 @@ export async function POST(req: NextRequest) {
       if (classification.needsEnvironmentCatalog) {
         systemPrompt += "\n\n" + buildEnvironmentCatalogPrompt();
       }
+      if (classification.needsOthersideCatalog) {
+        systemPrompt += "\n\n" + buildOthersideCatalogPrompt();
+      }
 
       userContent = `USER REQUEST: ${userMessage}`;
       if (currentBlueprint) {
@@ -116,11 +120,15 @@ export async function POST(req: NextRequest) {
 
       if (classification.generationMode === "OBJECT") {
         systemPrompt = buildObjectSystemPrompt(classification);
-        // OBJECT mode: no environment catalog
+        // OBJECT mode: no environment catalog by default
       } else {
         systemPrompt = buildSceneSystemPrompt(classification);
         // SCENE mode: inject relevant catalog
         systemPrompt += "\n\n" + buildEnvironmentCatalogPrompt();
+      }
+      // Inject Otherside catalog whenever user mentions "otherside"
+      if (classification.needsOthersideCatalog) {
+        systemPrompt += "\n\n" + buildOthersideCatalogPrompt();
       }
 
       // Static vs dynamic mode addendum

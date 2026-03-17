@@ -23,6 +23,53 @@ import {
   ENVIRONMENT_CATALOG,
   type EnvironmentAsset,
 } from "@/lib/assets/environment-catalog";
+import {
+  OTHERSIDE_CATALOG,
+  type OthersideAsset,
+} from "@/lib/assets/otherside-catalog";
+
+// ─── Otherside resolution ─────────────────────────────────────────────────────
+
+/**
+ * Find the best-matching Otherside asset for the given keywords.
+ * Used when the AI's modelTags contain "otherside" as the first tag.
+ */
+function resolveOthersideAsset(keywords: string[], type: string): OthersideAsset | null {
+  const lkw = keywords.map((k) => k.toLowerCase()).filter((k) => k.length > 1);
+
+  let best: OthersideAsset | null = null;
+  let bestScore = 0;
+
+  for (const asset of OTHERSIDE_CATALOG) {
+    let score = 0;
+    const nameLower = asset.name.toLowerCase();
+    const subcatLower = asset.subcategory.toLowerCase().replace(/_/g, " ");
+
+    for (const kw of lkw) {
+      if (asset.tags.some((t) => t === kw))                         { score += 20; continue; }
+      if (nameLower.includes(kw))                                    { score += 10; continue; }
+      if (subcatLower.includes(kw))                                  { score +=  5; continue; }
+      if (asset.tags.some((t) => t.includes(kw) || kw.includes(t))) { score +=  3; continue; }
+    }
+
+    if (score > bestScore) { bestScore = score; best = asset; }
+  }
+
+  if (bestScore > 0) return best;
+
+  // Type fallback — find any Otherside asset in a matching subcategory
+  if (type) {
+    const typeL = type.toLowerCase();
+    return (
+      OTHERSIDE_CATALOG.find((a) =>
+        a.subcategory.toLowerCase().includes(typeL) ||
+        a.tags.some((t) => t.includes(typeL))
+      ) ?? OTHERSIDE_CATALOG[0]
+    );
+  }
+
+  return OTHERSIDE_CATALOG[0];
+}
 
 // ─── Category classification ────────────────────────────────────────────────
 
@@ -459,6 +506,18 @@ function resolveStructureAsset(
     return s;
   }
   if (s.type === "light") return s;
+
+  // ── Otherside catalog resolution ──────────────────────────────────────────
+  // When the AI's first modelTag is "otherside", route to the Otherside catalog
+  // instead of the GCS catalog. This fires when the user explicitly asks for
+  // Otherside models and the AI correctly prepends "otherside" to modelTags.
+  if (s.modelTags && s.modelTags[0]?.toLowerCase() === "otherside") {
+    const othersideKeywords = s.modelTags.slice(1); // everything after "otherside"
+    const asset = resolveOthersideAsset(othersideKeywords, s.type);
+    if (asset) {
+      return { ...s, modelSrc: asset.modelUrl };
+    }
+  }
 
   // Build search keywords — only exact, tight matches
   const keywords: string[] = [];

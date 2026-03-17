@@ -15,6 +15,8 @@ export interface ClassificationResult {
   /** @deprecated Alias for archetype — kept for backwards compat */
   intentType: string;
   needsEnvironmentCatalog: boolean;
+  /** True when the user explicitly mentions "otherside" models */
+  needsOthersideCatalog: boolean;
 }
 
 // ── Scene-indicating keywords (places, layouts, explorable environments) ──
@@ -157,8 +159,9 @@ export function classifyRequest(prompt: string): ClassificationResult {
     generationMode = "SCENE";
   }
 
-  // 6. Determine catalog need
+  // 6. Determine catalog needs
   const needsEnvironmentCatalog = generationMode === "SCENE";
+  const needsOthersideCatalog = /\botherside\b/i.test(normalized);
 
   // If we couldn't detect an archetype but it's a scene, set it
   if (detectedArchetype === "unknown" && generationMode === "SCENE") {
@@ -176,5 +179,6 @@ export function classifyRequest(prompt: string): ClassificationResult {
     archetype: detectedArchetype,
     intentType: detectedArchetype, // backwards compat alias
     needsEnvironmentCatalog,
+    needsOthersideCatalog,
   };
 }

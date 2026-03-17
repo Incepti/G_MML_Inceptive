@@ -10,6 +10,56 @@ import { validateAndFixMml } from "@/lib/mml/alphaValidator";
 import { applyBlueprintPatch } from "@/lib/blueprint/patch";
 // Builder pipeline is now internal to generateMml()
 
+// ─── Helpers: preserve library-inserted elements during blueprint patches ─────
+
+/** Collect all structure IDs from a blueprint (recursive, includes children). */
+function getBlueprintIds(blueprint: BlueprintJSON): Set<string> {
+  const ids = new Set<string>();
+  const collect = (structures: BlueprintJSON["scene"]["structures"]) => {
+    for (const s of structures) {
+      ids.add(s.id);
+      if (s.children?.length) collect(s.children);
+    }
+  };
+  collect(blueprint.scene.structures);
+  return ids;
+}
+
+/**
+ * Extract m-model / m-character elements from MML whose IDs are NOT tracked
+ * in the blueprint. These are library-inserted models that bypass the blueprint.
+ */
+function extractOrphanElements(mml: string, blueprintIds: Set<string>): string[] {
+  const orphans: string[] = [];
+  // Match explicit close-tag form  (<m-model ...></m-model>)
+  const fullRe = /<(m-model|m-character)(\s[^>]*)?>[\s\S]*?<\/\1>/g;
+  // Match self-closing form  (<m-model ... />)
+  const selfRe = /<(m-model|m-character)(\s[^>]*)?\/>/g;
+  for (const re of [fullRe, selfRe]) {
+    let match: RegExpExecArray | null;
+    re.lastIndex = 0;
+    while ((match = re.exec(mml)) !== null) {
+      const attrs = match[2] ?? "";
+      const idMatch = attrs.match(/\bid="([^"]+)"/);
+      if (idMatch && !blueprintIds.has(idMatch[1])) {
+        orphans.push(match[0]);
+      }
+    }
+  }
+  return orphans;
+}
+
+/** Inject orphan elements back into generated MML just before </m-group>. */
+function reinjectOrphans(mml: string, orphans: string[]): string {
+  if (orphans.length === 0) return mml;
+  const block = "\n" + orphans.join("\n");
+  const closeIdx = mml.lastIndexOf("</m-group>");
+  if (closeIdx !== -1) return mml.slice(0, closeIdx) + block + "\n" + mml.slice(closeIdx);
+  return mml + block;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function synthesizeReasoning(data: Record<string, unknown>): ReasoningStep[] {
   const steps: ReasoningStep[] = [];
 
@@ -271,7 +321,18 @@ export function useGenerate() {
           store.addLog({ type: "info", message: `[PATCH] blueprint_after: ${newBlueprint.scene.structures.length} structures, title="${newBlueprint.meta.title}"` });
 
           const newMml = generateMml(newBlueprint);
-          const { fixedMml, issues } = validateAndFixMml(newMml, store.lastValidMml);
+          const oldMml = mmlFile?.content || "";
+
+          // Preserve library-inserted elements that live in scene.mml but are NOT
+          // part of the blueprint (they bypass the blueprint system entirely).
+          const preBlueprintIds = getBlueprintIds(currentBlueprint);
+          const orphans = extractOrphanElements(oldMml, preBlueprintIds);
+          if (orphans.length > 0) {
+            store.addLog({ type: "info", message: `[PATCH] preserving ${orphans.length} library-inserted element(s)` });
+          }
+          const mmlWithOrphans = reinjectOrphans(newMml, orphans);
+
+          const { fixedMml, issues } = validateAndFixMml(mmlWithOrphans, store.lastValidMml);
 
           store.addLog({ type: "info", message: `[GEN] mml_generated: ${fixedMml.length} chars` });
 
@@ -286,7 +347,6 @@ export function useGenerate() {
             reasoning.push({ title: "Validation", content: issues.map((i) => `[${i.severity}] ${i.message}`).join("\n"), status: issues.some((i) => i.severity === "error") ? "error" : "complete" });
           }
 
-          const oldMml = mmlFile?.content || "";
           store.setPendingDiff({ oldMml, newMml: fixedMml });
 
           store.setBlueprint(newBlueprint);
