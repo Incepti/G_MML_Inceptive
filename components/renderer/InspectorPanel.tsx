@@ -369,6 +369,65 @@ function SelectionProperties() {
   const mmlSrc = selectedObjectId ? getMmlElementSrc(currentMml, selectedObjectId) : "";
   const mmlTag = selectedObjectId ? getMmlElementTag(currentMml, selectedObjectId) : "";
 
+  // Use blueprint transform if available (more accurate, includes current in-memory state)
+  const t: Transform9 = structure?.transform ?? mmlTransform ?? { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, sx: 1, sy: 1, sz: 1 };
+
+  // ── ALL hooks must be called unconditionally (React Rules of Hooks) ────────
+  const applyTransform = useCallback((newT: Transform9) => {
+    const id = useEditorStore.getState().selectedObjectId;
+    if (!id) return;
+    // 1. Update in-memory blueprint (for blueprint objects)
+    const state = useEditorStore.getState();
+    const bp = state.currentBlueprint;
+    if (bp && findStructure(bp.scene.structures, id)) {
+      state.updateBlueprintTransform(id, newT);
+    }
+    // 2. Patch scene.mml directly (works for all objects)
+    const proj = state.projects.find((p) => p.id === state.activeProjectId);
+    const mmlFile = proj?.files.find((f) => f.name === "scene.mml");
+    if (proj && mmlFile) {
+      const patched = patchMmlTransform(mmlFile.content, id, newT);
+      state.updateFileContent(proj.id, mmlFile.id, patched, true);
+    }
+  }, []);
+
+  const handlePosition = useCallback((axis: "x" | "y" | "z", v: number) => {
+    const state = useEditorStore.getState();
+    const id = state.selectedObjectId;
+    if (!id) return;
+    const mml = state.projects.find((p) => p.id === state.activeProjectId)?.files.find((f) => f.name === "scene.mml")?.content ?? "";
+    const cur = getMmlElementTransform(mml, id);
+    if (cur) applyTransform({ ...cur, [axis]: v });
+  }, [applyTransform]);
+
+  const handleRotation = useCallback((axis: "x" | "y" | "z", v: number) => {
+    const map: Record<string, string> = { x: "rx", y: "ry", z: "rz" };
+    const state = useEditorStore.getState();
+    const id = state.selectedObjectId;
+    if (!id) return;
+    const mml = state.projects.find((p) => p.id === state.activeProjectId)?.files.find((f) => f.name === "scene.mml")?.content ?? "";
+    const cur = getMmlElementTransform(mml, id);
+    if (cur) applyTransform({ ...cur, [map[axis]]: v });
+  }, [applyTransform]);
+
+  const handleScale = useCallback((axis: "x" | "y" | "z", v: number) => {
+    const state = useEditorStore.getState();
+    const id = state.selectedObjectId;
+    if (!id) return;
+    const mml = state.projects.find((p) => p.id === state.activeProjectId)?.files.find((f) => f.name === "scene.mml")?.content ?? "";
+    const cur = getMmlElementTransform(mml, id);
+    if (!cur) return;
+    if (uniformScale) {
+      const refAxis = axis === "x" ? cur.sx : axis === "y" ? cur.sy : cur.sz;
+      const ratio = refAxis !== 0 ? v / refAxis : 1;
+      applyTransform({ ...cur, sx: cur.sx * ratio, sy: cur.sy * ratio, sz: cur.sz * ratio });
+    } else {
+      const map: Record<string, string> = { x: "sx", y: "sy", z: "sz" };
+      applyTransform({ ...cur, [map[axis]]: v });
+    }
+  }, [applyTransform, uniformScale]);
+
+  // ── Early returns AFTER all hooks ──────────────────────────────────────────
   if (!selectedObjectId) {
     return (
       <div style={{ padding: "32px 12px", textAlign: "center", color: "#8aa0c4", fontSize: "11px" }}>
@@ -386,46 +445,6 @@ function SelectionProperties() {
       </div>
     );
   }
-
-  // Use blueprint transform if available (more accurate, includes current in-memory state)
-  const t: Transform9 = structure?.transform ?? mmlTransform;
-
-  // ── Write transform back to both blueprint (if applicable) and MML ─────────
-  const applyTransform = useCallback((newT: Transform9) => {
-    // 1. Update in-memory blueprint (for blueprint objects)
-    if (structure) {
-      updateBlueprintTransform(selectedObjectId, newT);
-    }
-    // 2. Patch scene.mml directly (works for all objects)
-    const state = useEditorStore.getState();
-    const proj = state.projects.find((p) => p.id === state.activeProjectId);
-    const mmlFile = proj?.files.find((f) => f.name === "scene.mml");
-    if (proj && mmlFile) {
-      const patched = patchMmlTransform(mmlFile.content, selectedObjectId, newT);
-      state.updateFileContent(proj.id, mmlFile.id, patched, true);
-    }
-  }, [selectedObjectId, structure, updateBlueprintTransform]);
-
-  const handlePosition = useCallback((axis: "x" | "y" | "z", v: number) => {
-    applyTransform({ ...t, [axis]: v });
-  }, [t, applyTransform]);
-
-  const handleRotation = useCallback((axis: "x" | "y" | "z", v: number) => {
-    const map: Record<string, string> = { x: "rx", y: "ry", z: "rz" };
-    applyTransform({ ...t, [map[axis]]: v });
-  }, [t, applyTransform]);
-
-  const handleScale = useCallback((axis: "x" | "y" | "z", v: number) => {
-    if (uniformScale) {
-      // Uniform: change all axes proportionally from the changed axis
-      const refAxis = axis === "x" ? t.sx : axis === "y" ? t.sy : t.sz;
-      const ratio = refAxis !== 0 ? v / refAxis : 1;
-      applyTransform({ ...t, sx: t.sx * ratio, sy: t.sy * ratio, sz: t.sz * ratio });
-    } else {
-      const map: Record<string, string> = { x: "sx", y: "sy", z: "sz" };
-      applyTransform({ ...t, [map[axis]]: v });
-    }
-  }, [t, applyTransform, uniformScale]);
 
   const displaySrc = mmlSrc
     ? mmlSrc.split("/").pop() ?? mmlSrc
