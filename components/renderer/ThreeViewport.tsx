@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import { useEditorStore } from "@/lib/store";
 import type { MMLRenderer } from "@/lib/renderer/engine";
-import { generateMml } from "@/lib/blueprint/generateMml";
 
 interface ThreeViewportProps {
   mmlHtml: string;
@@ -68,15 +67,12 @@ export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProp
     rendererOptions,
     selectedObjectId,
     transformMode,
-    viewportTransformDirty,
-    currentBlueprint,
     mmlVersion,
     transformPatchVersion,
     setSelectedObjectId,
     setTransformMode,
     setViewportTransformDirty,
     updateBlueprintTransform,
-    resyncFromBlueprint,
   } = useEditorStore();
 
   // Track previous transformPatchVersion to detect transform-only updates
@@ -119,6 +115,8 @@ export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProp
             // isTransformPatch=true → increments transformPatchVersion so viewports
             // can detect this was a gizmo-only change and skip loadMML
             state.updateFileContent(proj.id, mmlFile.id, patched, true);
+            // Clear dirty flag — the patch is already applied to scene.mml
+            state.setViewportTransformDirty(false);
           }, 150);
         });
       }
@@ -213,12 +211,6 @@ export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProp
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setTransformMode, setSelectedObjectId, isPlayMode]);
 
-  const handleUpdateMml = useCallback(() => {
-    if (!currentBlueprint) return;
-    const newMml = generateMml(currentBlueprint);
-    resyncFromBlueprint(newMml);
-    setViewportTransformDirty(false);
-  }, [currentBlueprint, resyncFromBlueprint, setViewportTransformDirty]);
 
   const modeBtn = (mode: "translate" | "rotate" | "scale", label: string, key: string) => (
     <button
@@ -258,14 +250,6 @@ export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProp
         </div>
       )}
 
-      {!isPlayMode && viewportTransformDirty && (
-        <button
-          onClick={handleUpdateMml}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded shadow-lg"
-        >
-          Update MML
-        </button>
-      )}
 
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40">
