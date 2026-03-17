@@ -7,6 +7,7 @@ import { LogsPanel } from "@/components/logs/LogsPanel";
 import { ResizeHandle } from "@/components/layout/ResizeHandle";
 import { RightSidebar } from "@/components/layout/RightSidebar";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { ProjectLauncher } from "@/components/launcher/ProjectLauncher";
 import { MonacoEditorPanel } from "@/components/editor/MonacoEditor";
 import { DiffViewer } from "@/components/editor/DiffViewer";
 import { AssetLibrary } from "@/components/explorer/AssetLibrary";
@@ -193,7 +194,7 @@ function CodeEditorPanel() {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function StudioPage() {
   const [mounted, setMounted] = useState(false);
-  const { panelSizes } = useEditorStore();
+  const { panelSizes, activeProjectId } = useEditorStore();
 
   // Refs to measure containers during resize
   const centerRef    = useRef<HTMLDivElement>(null);
@@ -235,6 +236,11 @@ export default function StudioPage() {
         <span className="text-editor-accent text-sm font-bold tracking-tight animate-pulse">⬡ GEEZ MML Studio</span>
       </div>
     );
+  }
+
+  // Show project launcher when no project is active
+  if (!activeProjectId) {
+    return <ProjectLauncher />;
   }
 
   return (
