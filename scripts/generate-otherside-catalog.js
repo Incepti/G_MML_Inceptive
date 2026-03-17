@@ -19,7 +19,7 @@ const ROOT       = path.resolve(__dirname, "..");
 const INPUT_JSON = "C:\\Users\\Admin\\Music\\Assets_Definer\\models.json";
 const OUTPUT     = path.join(ROOT, "lib", "assets", "otherside-catalog.ts");
 
-const OTHERSIDE_BASE = "https://storage.googleapis.com/3dmodels_mml/otherside";
+const OTHERSIDE_BASE = "https://storage.googleapis.com/3dmodels_mml/OthersideModels";
 
 // ─── Category → EnvironmentAsset.category ────────────────────────────────────
 const ASSET_CATEGORY = {
@@ -173,7 +173,7 @@ const lines = [
   ``,
   `import type { EnvironmentAsset } from "./environment-catalog";`,
   ``,
-  `export const OTHERSIDE_BASE = "https://storage.googleapis.com/3dmodels_mml/otherside";`,
+  `export const OTHERSIDE_BASE = "https://storage.googleapis.com/3dmodels_mml/OthersideModels";`,
   ``,
   `/** All Otherside subcategory names in display order */`,
   `export const OTHERSIDE_SUBCATEGORIES = ${JSON.stringify(Object.keys(data))} as const;`,
