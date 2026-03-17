@@ -438,32 +438,29 @@ export function AssetLibrary({ onInsertAsset }: AssetLibraryProps) {
         </div>
       </div>
 
-      {/* ── Subcategory/category tabs ── */}
+      {/* ── Subcategory/category filter ── */}
       {libraryTab === "otherside" ? (
         <div style={{
-          display: "flex", gap: "3px", padding: "5px 7px",
-          overflowX: "auto", flexShrink: 0,
-          borderBottom: "1px solid #1a1a3a",
-          scrollbarWidth: "none",
+          display: "flex", flexWrap: "wrap", gap: "3px", padding: "6px 8px",
+          borderBottom: "1px solid #1a1a3a", flexShrink: 0,
+          maxHeight: "90px", overflowY: "auto",
         }}>
-          {/* All tab */}
           <button
             onClick={() => setOthersideSubcat("all")}
             style={{
-              flexShrink: 0, padding: "2px 7px", borderRadius: "4px", cursor: "pointer",
+              padding: "3px 8px", borderRadius: "4px", cursor: "pointer",
               border: othersideSubcat === "all" ? "1px solid #a855f7" : "1px solid #2a1a4a",
-              background: othersideSubcat === "all" ? "rgba(168,85,247,0.12)" : "#100e2a",
+              background: othersideSubcat === "all" ? "rgba(168,85,247,0.15)" : "#100e2a",
               color: othersideSubcat === "all" ? "#c084fc" : "#7070aa",
               fontSize: "10px", fontWeight: othersideSubcat === "all" ? 600 : 400,
               fontFamily: "inherit", whiteSpace: "nowrap",
-              display: "flex", alignItems: "center", gap: "3px",
+              display: "inline-flex", alignItems: "center", gap: "3px",
             }}
           >
             ⊞ All
             <span style={{
-              fontSize: "8px", opacity: 0.7,
-              background: othersideSubcat === "all" ? "rgba(168,85,247,0.15)" : "#1a1a3a",
-              borderRadius: "3px", padding: "0 3px",
+              fontSize: "8px", background: othersideSubcat === "all" ? "rgba(168,85,247,0.2)" : "#1a1a3a",
+              borderRadius: "3px", padding: "0 3px", color: "inherit",
             }}>
               {OTHERSIDE_CATALOG.length}
             </span>
@@ -476,22 +473,21 @@ export function AssetLibrary({ onInsertAsset }: AssetLibraryProps) {
                 key={subcat}
                 onClick={() => setOthersideSubcat(subcat)}
                 style={{
-                  flexShrink: 0, padding: "2px 7px", borderRadius: "4px", cursor: "pointer",
+                  padding: "3px 8px", borderRadius: "4px", cursor: "pointer",
                   border: active ? "1px solid #a855f7" : "1px solid #2a1a4a",
-                  background: active ? "rgba(168,85,247,0.12)" : "#100e2a",
+                  background: active ? "rgba(168,85,247,0.15)" : "#100e2a",
                   color: active ? "#c084fc" : "#7070aa",
                   fontSize: "10px", fontWeight: active ? 600 : 400,
                   fontFamily: "inherit", whiteSpace: "nowrap",
-                  display: "flex", alignItems: "center", gap: "3px",
-                  transition: "all 0.1s",
+                  display: "inline-flex", alignItems: "center", gap: "3px",
+                  transition: "border-color 0.1s, background 0.1s, color 0.1s",
                 }}
               >
-                <span style={{ fontSize: "10px" }}>{OTHERSIDE_ICONS[subcat] || "⬡"}</span>
-                {subcat.replace(/_/g, " ")}
+                {OTHERSIDE_ICONS[subcat] || "⬡"} {subcat.replace(/_/g, " ")}
                 <span style={{
-                  fontSize: "8px", opacity: 0.7,
-                  background: active ? "rgba(168,85,247,0.15)" : "#1a1a3a",
-                  borderRadius: "3px", padding: "0 3px",
+                  fontSize: "8px",
+                  background: active ? "rgba(168,85,247,0.2)" : "#1a1a3a",
+                  borderRadius: "3px", padding: "0 3px", color: "inherit",
                 }}>
                   {count}
                 </span>
@@ -501,10 +497,9 @@ export function AssetLibrary({ onInsertAsset }: AssetLibraryProps) {
         </div>
       ) : (
         <div style={{
-          display: "flex", gap: "3px", padding: "5px 7px",
-          overflowX: "auto", flexShrink: 0,
-          borderBottom: "1px solid #223052",
-          scrollbarWidth: "none",
+          display: "flex", flexWrap: "wrap", gap: "3px", padding: "6px 8px",
+          borderBottom: "1px solid #223052", flexShrink: 0,
+          maxHeight: "76px", overflowY: "auto",
         }}>
           {GCS_CATEGORIES.map((cat) => {
             const count = folderCounts[cat.id] ?? 0;
@@ -515,22 +510,21 @@ export function AssetLibrary({ onInsertAsset }: AssetLibraryProps) {
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
                 style={{
-                  flexShrink: 0, padding: "2px 7px", borderRadius: "4px", cursor: "pointer",
+                  padding: "3px 8px", borderRadius: "4px", cursor: "pointer",
                   border: active ? "1px solid #14b8a6" : "1px solid #223052",
-                  background: active ? "rgba(20,184,166,0.12)" : "#0d1326",
+                  background: active ? "rgba(20,184,166,0.15)" : "#0d1326",
                   color: active ? "#14b8a6" : "#8aa0c4",
                   fontSize: "10px", fontWeight: active ? 600 : 400,
                   fontFamily: "inherit", whiteSpace: "nowrap",
-                  display: "flex", alignItems: "center", gap: "3px",
-                  transition: "all 0.1s",
+                  display: "inline-flex", alignItems: "center", gap: "3px",
+                  transition: "border-color 0.1s, background 0.1s, color 0.1s",
                 }}
               >
-                <span style={{ fontSize: "10px" }}>{cat.icon}</span>
-                {cat.label}
+                {cat.icon} {cat.label}
                 <span style={{
-                  fontSize: "8px", opacity: 0.7,
-                  background: active ? "rgba(20,184,166,0.15)" : "#121a33",
-                  borderRadius: "3px", padding: "0 3px",
+                  fontSize: "8px",
+                  background: active ? "rgba(20,184,166,0.2)" : "#121a33",
+                  borderRadius: "3px", padding: "0 3px", color: "inherit",
                 }}>
                   {count}
                 </span>
@@ -560,7 +554,7 @@ export function AssetLibrary({ onInsertAsset }: AssetLibraryProps) {
           </div>
         ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "4px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "5px" }}>
               {libraryTab === "otherside"
                 ? (shown as OthersideAsset[]).map((asset) => (
                     <OthersideCard key={asset.id} asset={asset} onInsert={onInsertAsset} />

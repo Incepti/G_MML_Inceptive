@@ -189,7 +189,7 @@ function CodeEditorPanel() {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function StudioPage() {
   const [mounted, setMounted] = useState(false);
-  const { panelSizes, setPanelSizes } = useEditorStore();
+  const { panelSizes } = useEditorStore();
 
   // Refs to measure containers during resize
   const centerRef    = useRef<HTMLDivElement>(null);
@@ -197,29 +197,33 @@ export default function StudioPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Library ↔ Viewport  (px)
+  // Library ↔ Viewport  (px) — use getState() to avoid stale closure during drag
   const handleLibraryResize = useCallback((delta: number) => {
-    setPanelSizes({ libraryWidth: Math.max(200, Math.min(520, panelSizes.libraryWidth + delta)) });
-  }, [panelSizes.libraryWidth, setPanelSizes]);
+    const { panelSizes: ps, setPanelSizes: sps } = useEditorStore.getState();
+    sps({ libraryWidth: Math.max(200, Math.min(600, ps.libraryWidth + delta)) });
+  }, []);
 
   // Top row ↔ Bottom row  (%)
   const handleVerticalResize = useCallback((delta: number) => {
     if (!centerRef.current) return;
-    const pct = (delta / centerRef.current.clientHeight) * 100;
-    setPanelSizes({ topRowPercent: Math.max(20, Math.min(80, panelSizes.topRowPercent + pct)) });
-  }, [panelSizes.topRowPercent, setPanelSizes]);
+    const height = centerRef.current.clientHeight;
+    const { panelSizes: ps, setPanelSizes: sps } = useEditorStore.getState();
+    sps({ topRowPercent: Math.max(15, Math.min(85, ps.topRowPercent + (delta / height) * 100)) });
+  }, []);
 
   // Code ↔ Logs  (%)
   const handleBottomHorizontalResize = useCallback((delta: number) => {
     if (!bottomRef.current) return;
-    const pct = (delta / bottomRef.current.clientWidth) * 100;
-    setPanelSizes({ editorPercent: Math.max(20, Math.min(80, panelSizes.editorPercent + pct)) });
-  }, [panelSizes.editorPercent, setPanelSizes]);
+    const width = bottomRef.current.clientWidth;
+    const { panelSizes: ps, setPanelSizes: sps } = useEditorStore.getState();
+    sps({ editorPercent: Math.max(20, Math.min(80, ps.editorPercent + (delta / width) * 100)) });
+  }, []);
 
   // Right sidebar  (px)
   const handleSidebarResize = useCallback((delta: number) => {
-    setPanelSizes({ sidebarWidth: Math.max(240, Math.min(520, panelSizes.sidebarWidth - delta)) });
-  }, [panelSizes.sidebarWidth, setPanelSizes]);
+    const { panelSizes: ps, setPanelSizes: sps } = useEditorStore.getState();
+    sps({ sidebarWidth: Math.max(240, Math.min(600, ps.sidebarWidth - delta)) });
+  }, []);
 
   if (!mounted) {
     return (
