@@ -409,16 +409,7 @@ export function addShowcaseSetup(blueprint: BlueprintJSON): BlueprintJSON {
     );
   }
 
-  if (!blueprint.scene.ground) {
-    return {
-      ...blueprint,
-      scene: {
-        ...blueprint.scene,
-        ground: { type: "plane" as const, width: 8, height: 8, color: "#2D2D2D", y: 0 },
-        structures,
-      },
-    };
-  }
+  // Ground plane intentionally omitted — the renderer environment provides one.
 
   return { ...blueprint, scene: { ...blueprint.scene, structures } };
 }

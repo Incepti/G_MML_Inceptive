@@ -18,13 +18,8 @@ export function serializeScene(blueprint: BlueprintJSON): string {
 
   lines.push(`<m-group id="${esc(rootId)}">`);
 
-  // Ground plane (only if explicitly specified)
-  if (blueprint.scene.ground) {
-    const g = blueprint.scene.ground;
-    lines.push(
-      `  <m-plane id="ground" width="${n(g.width)}" height="${n(g.height)}" color="${esc(g.color)}" y="${n(g.y)}" rx="-90"></m-plane>`
-    );
-  }
+  // Ground plane removed — the renderer environment provides one.
+  // Do NOT serialize blueprint.scene.ground even if the AI includes it.
 
   // Group structures by zone (if zones are used)
   const zoned = new Map<Zone, BlueprintStructure[]>();

@@ -301,8 +301,10 @@ HARD CAPS (never exceed):
 • Physics bodies: 150 maximum
 • Particles: 800 maximum
 
-ENVIRONMENT RULE:
-Do NOT add a separate ground plane or floor — the environment already provides one.
+ENVIRONMENT RULE (STRICT):
+NEVER add a ground plane, floor, or "ground" field in the blueprint.
+The 3D environment already provides a ground surface.
+Do NOT include "ground" in the blueprint JSON. Do NOT create m-plane elements for ground/floor.
 
 ═══════════════════════════════════════════════════════════════
 STEP 4 — BLUEPRINT → MML CODE GENERATION

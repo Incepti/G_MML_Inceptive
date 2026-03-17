@@ -591,7 +591,7 @@ ENFORCEMENT RULES:
 - m-attr-anim: use attr, start, end, duration, loop, easing (NEVER values, dur, repeat)${animRule}
 - HARD CAPS: Lights ≤8, Models ≤100
 - Scene MUST start with a root <m-group>
-- No ground plane or floor (environment provides one)
+- NEVER add a ground plane, floor, or "ground" field — the environment already provides one. Do NOT include "ground" in the blueprint JSON.
 - For m-model src: ONLY use VERIFIED_ASSET_CATALOG URLs or primitives. NEVER fabricate URLs.
 - Follow the 3-LAYER hierarchy from your Creative Director Mandate
 - MINIMUM element counts per Creative Director Mandate:

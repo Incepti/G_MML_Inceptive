@@ -235,7 +235,7 @@ export const useEditorStore = create<StoreState>()(
             name: "scene.mml",
             type: "mml",
             content:
-              `<m-group>\n  <!-- Your MML scene -->\n  <m-cube color="#7c3aed" y="1"></m-cube>\n</m-group>`,
+              `<m-group id="root">\n  <m-cube id="default-cube" color="#7c3aed" y="1"></m-cube>\n</m-group>`,
             updatedAt: now,
           },
         ];

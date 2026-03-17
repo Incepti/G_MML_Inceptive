@@ -316,7 +316,6 @@ Zones describe where in the scene a structure lives. Always assign a zone.
     "budgets": { "maxLights": 8, "maxModels": 200, "maxEntities": 1000 },
     "scene": {
       "rootId": "root",
-      "ground": { "type": "plane", "width": 12, "height": 10, "color": "#3a3a2a", "y": 0 },
       "structures": [
         {
           "id": "wall-north",
