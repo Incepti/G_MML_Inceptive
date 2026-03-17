@@ -1,10 +1,17 @@
 "use client";
 
-import React from "react";
+import React, { useState, useCallback } from "react";
 import * as THREE from "three";
 import { useEditorStore } from "@/lib/store";
 import type { ValidationReport } from "@/types/mml";
 import type { BlueprintJSON } from "@/types/blueprint";
+import {
+  patchMmlTransform,
+  getMmlElementTransform,
+  getMmlElementSrc,
+  getMmlElementTag,
+  type Transform9,
+} from "@/lib/mml/transformPatch";
 
 function ValidationResults({ report }: { report: ValidationReport }) {
   if (report.valid && report.errors.length === 0 && report.warnings.length === 0) {
@@ -235,122 +242,308 @@ function findStructure(
   return null;
 }
 
+// ── Axis colours matching UE5 convention ──────────────────────────────────────
+const AXIS_COLOR = { X: "#f25b5b", Y: "#6abf6a", Z: "#5b8ef2" } as const;
+
+function AxisLabel({ axis }: { axis: "X" | "Y" | "Z" }) {
+  return (
+    <span style={{
+      color: AXIS_COLOR[axis],
+      fontSize: "10px", fontWeight: 700,
+      width: "13px", textAlign: "center", flexShrink: 0,
+      letterSpacing: "-0.5px",
+    }}>
+      {axis}
+    </span>
+  );
+}
+
 function TransformField({
-  label,
+  axis,
   value,
+  step = 0.1,
   onChange,
 }: {
-  label: string;
+  axis: "X" | "Y" | "Z";
   value: number;
+  step?: number;
   onChange: (v: number) => void;
 }) {
+  const [localVal, setLocalVal] = React.useState(String(+value.toFixed(4)));
+
+  // Sync when external value changes (e.g. from gizmo)
+  React.useEffect(() => {
+    setLocalVal(String(+value.toFixed(4)));
+  }, [value]);
+
   return (
-    <div className="flex items-center gap-1">
-      <span className="text-editor-text-muted w-5 text-right">{label}</span>
-      <input
-        type="number"
-        step="0.1"
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-        className="flex-1 bg-editor-panel border border-editor-border text-editor-text rounded px-1.5 py-0.5 text-xs font-mono w-16"
-      />
+    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+      <AxisLabel axis={axis} />
+      <div style={{
+        flex: 1,
+        background: "#0d1122",
+        border: "1px solid #1e2d50",
+        borderRadius: "4px",
+        display: "flex", alignItems: "center",
+      }}>
+        <input
+          type="number"
+          step={step}
+          value={localVal}
+          onChange={(e) => setLocalVal(e.target.value)}
+          onBlur={(e) => {
+            const v = parseFloat(e.target.value);
+            if (!isNaN(v)) { onChange(v); setLocalVal(String(+v.toFixed(4))); }
+            else setLocalVal(String(+value.toFixed(4)));
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          style={{
+            flex: 1, background: "transparent", border: "none", outline: "none",
+            fontSize: "11px", color: "#e6f1ff", fontFamily: "monospace",
+            padding: "2px 6px", minWidth: 0,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TransformSection({
+  label,
+  values,
+  steps,
+  onChange,
+  lockToggle,
+}: {
+  label: string;
+  values: [number, number, number];
+  steps?: [number, number, number];
+  onChange: (axis: "x" | "y" | "z", v: number) => void;
+  lockToggle?: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: "10px" }}>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: "4px",
+      }}>
+        <span style={{ fontSize: "9px", color: "#8aa0c4", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
+          {label}
+        </span>
+        {lockToggle}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+        <TransformField axis="X" value={values[0]} step={steps?.[0]} onChange={(v) => onChange("x", v)} />
+        <TransformField axis="Y" value={values[1]} step={steps?.[1]} onChange={(v) => onChange("y", v)} />
+        <TransformField axis="Z" value={values[2]} step={steps?.[2]} onChange={(v) => onChange("z", v)} />
+      </div>
     </div>
   );
 }
 
 function SelectionProperties() {
+  const [uniformScale, setUniformScale] = useState(true);
+
   const {
     selectedObjectId,
     currentBlueprint,
     updateBlueprintTransform,
   } = useEditorStore();
 
-  if (!selectedObjectId || !currentBlueprint) {
+  // ── Determine if object is blueprint-tracked or library-inserted ───────────
+  const structure = selectedObjectId && currentBlueprint
+    ? findStructure(currentBlueprint.scene.structures, selectedObjectId)
+    : null;
+
+  // Read current MML for either fallback or library objects
+  const currentMml = useEditorStore((s) => {
+    const proj = s.projects.find((p) => p.id === s.activeProjectId);
+    return proj?.files.find((f) => f.name === "scene.mml")?.content ?? "";
+  });
+
+  const mmlTransform = selectedObjectId
+    ? getMmlElementTransform(currentMml, selectedObjectId)
+    : null;
+  const mmlSrc = selectedObjectId ? getMmlElementSrc(currentMml, selectedObjectId) : "";
+  const mmlTag = selectedObjectId ? getMmlElementTag(currentMml, selectedObjectId) : "";
+
+  if (!selectedObjectId) {
     return (
-      <div className="text-editor-text-muted text-xs text-center py-8">
-        Click an object in the viewport to inspect it
+      <div style={{ padding: "32px 12px", textAlign: "center", color: "#8aa0c4", fontSize: "11px" }}>
+        <div style={{ fontSize: "22px", marginBottom: "8px", opacity: 0.4 }}>⊹</div>
+        Click an object in the viewport to select it
       </div>
     );
   }
 
-  const structure = findStructure(currentBlueprint.scene.structures, selectedObjectId);
-  if (!structure) {
+  if (!mmlTransform) {
     return (
-      <div className="text-editor-text-muted text-xs text-center py-8">
-        Object &quot;{selectedObjectId}&quot; not found in blueprint
+      <div style={{ padding: "20px 12px", textAlign: "center", color: "#8aa0c4", fontSize: "11px" }}>
+        <div style={{ color: "#f87171", marginBottom: "4px" }}>⚠</div>
+        Object &quot;{selectedObjectId}&quot; not found in scene
       </div>
     );
   }
 
-  const t = structure.transform;
+  // Use blueprint transform if available (more accurate, includes current in-memory state)
+  const t: Transform9 = structure?.transform ?? mmlTransform;
 
-  const update = (field: string, value: number) => {
-    updateBlueprintTransform(selectedObjectId, {
-      ...t,
-      [field]: value,
-    });
-  };
+  // ── Write transform back to both blueprint (if applicable) and MML ─────────
+  const applyTransform = useCallback((newT: Transform9) => {
+    // 1. Update in-memory blueprint (for blueprint objects)
+    if (structure) {
+      updateBlueprintTransform(selectedObjectId, newT);
+    }
+    // 2. Patch scene.mml directly (works for all objects)
+    const state = useEditorStore.getState();
+    const proj = state.projects.find((p) => p.id === state.activeProjectId);
+    const mmlFile = proj?.files.find((f) => f.name === "scene.mml");
+    if (proj && mmlFile) {
+      const patched = patchMmlTransform(mmlFile.content, selectedObjectId, newT);
+      state.updateFileContent(proj.id, mmlFile.id, patched, true);
+    }
+  }, [selectedObjectId, structure, updateBlueprintTransform]);
+
+  const handlePosition = useCallback((axis: "x" | "y" | "z", v: number) => {
+    applyTransform({ ...t, [axis]: v });
+  }, [t, applyTransform]);
+
+  const handleRotation = useCallback((axis: "x" | "y" | "z", v: number) => {
+    const map: Record<string, string> = { x: "rx", y: "ry", z: "rz" };
+    applyTransform({ ...t, [map[axis]]: v });
+  }, [t, applyTransform]);
+
+  const handleScale = useCallback((axis: "x" | "y" | "z", v: number) => {
+    if (uniformScale) {
+      // Uniform: change all axes proportionally from the changed axis
+      const refAxis = axis === "x" ? t.sx : axis === "y" ? t.sy : t.sz;
+      const ratio = refAxis !== 0 ? v / refAxis : 1;
+      applyTransform({ ...t, sx: t.sx * ratio, sy: t.sy * ratio, sz: t.sz * ratio });
+    } else {
+      const map: Record<string, string> = { x: "sx", y: "sy", z: "sz" };
+      applyTransform({ ...t, [map[axis]]: v });
+    }
+  }, [t, applyTransform, uniformScale]);
+
+  const displaySrc = mmlSrc
+    ? mmlSrc.split("/").pop() ?? mmlSrc
+    : structure?.geometry
+    ? `${structure.geometry.kind} (primitive)`
+    : "—";
 
   return (
-    <div className="space-y-3 text-xs">
-      <div className="bg-editor-panel rounded p-2 border border-editor-border">
-        <div className="text-editor-text font-medium">{structure.id}</div>
-        <div className="text-editor-text-muted text-[10px]">Type: {structure.type}</div>
+    <div style={{ padding: "8px", fontSize: "12px" }}>
+      {/* Header */}
+      <div style={{
+        background: "#0d1326",
+        border: "1px solid #1e2d50",
+        borderRadius: "6px",
+        padding: "8px 10px",
+        marginBottom: "10px",
+      }}>
+        <div style={{ fontWeight: 600, color: "#e6f1ff", fontSize: "12px", marginBottom: "2px" }}>
+          {selectedObjectId}
+        </div>
+        <div style={{ color: "#8aa0c4", fontSize: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <span style={{
+            background: "#152040", color: "#60a5fa",
+            padding: "1px 6px", borderRadius: "3px", fontSize: "9px",
+          }}>
+            {mmlTag || structure?.type || "element"}
+          </span>
+          {!structure && (
+            <span style={{
+              background: "#2a1a4a", color: "#c084fc",
+              padding: "1px 6px", borderRadius: "3px", fontSize: "9px",
+            }}>
+              library
+            </span>
+          )}
+        </div>
+        {displaySrc !== "—" && (
+          <div style={{
+            color: "#6070a0", fontSize: "9px", marginTop: "4px",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }} title={mmlSrc}>
+            {displaySrc}
+          </div>
+        )}
       </div>
 
-      <div>
-        <div className="text-editor-text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">
-          Position
-        </div>
-        <div className="space-y-1">
-          <TransformField label="X" value={t.x} onChange={(v) => update("x", v)} />
-          <TransformField label="Y" value={t.y} onChange={(v) => update("y", v)} />
-          <TransformField label="Z" value={t.z} onChange={(v) => update("z", v)} />
-        </div>
-      </div>
+      {/* Position */}
+      <TransformSection
+        label="Location"
+        values={[t.x, t.y, t.z]}
+        steps={[0.1, 0.1, 0.1]}
+        onChange={handlePosition}
+      />
 
-      <div>
-        <div className="text-editor-text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">
-          Rotation
-        </div>
-        <div className="space-y-1">
-          <TransformField label="X" value={t.rx} onChange={(v) => update("rx", v)} />
-          <TransformField label="Y" value={t.ry} onChange={(v) => update("ry", v)} />
-          <TransformField label="Z" value={t.rz} onChange={(v) => update("rz", v)} />
-        </div>
-      </div>
+      {/* Rotation */}
+      <TransformSection
+        label="Rotation"
+        values={[t.rx, t.ry, t.rz]}
+        steps={[1, 1, 1]}
+        onChange={handleRotation}
+      />
 
-      <div>
-        <div className="text-editor-text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">
-          Scale
-        </div>
-        <div className="space-y-1">
-          <TransformField label="X" value={t.sx} onChange={(v) => update("sx", v)} />
-          <TransformField label="Y" value={t.sy} onChange={(v) => update("sy", v)} />
-          <TransformField label="Z" value={t.sz} onChange={(v) => update("sz", v)} />
-        </div>
-      </div>
+      {/* Scale with uniform lock */}
+      <TransformSection
+        label="Scale"
+        values={[t.sx, t.sy, t.sz]}
+        steps={[0.01, 0.01, 0.01]}
+        onChange={handleScale}
+        lockToggle={
+          <button
+            onClick={() => setUniformScale((v) => !v)}
+            title={uniformScale ? "Uniform scale (click to unlock)" : "Non-uniform scale (click to lock)"}
+            style={{
+              background: uniformScale ? "rgba(96,165,250,0.15)" : "transparent",
+              border: `1px solid ${uniformScale ? "#3b82f6" : "#1e2d50"}`,
+              borderRadius: "3px",
+              padding: "1px 5px",
+              cursor: "pointer",
+              color: uniformScale ? "#60a5fa" : "#8aa0c4",
+              fontSize: "9px",
+              display: "flex", alignItems: "center", gap: "3px",
+            }}
+          >
+            {uniformScale ? "🔒 Lock" : "🔓 Free"}
+          </button>
+        }
+      />
 
-      {structure.material && (
-        <div>
-          <div className="text-editor-text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">
+      {/* Material (blueprint objects only) */}
+      {structure?.material && (
+        <div style={{ marginTop: "8px" }}>
+          <div style={{ fontSize: "9px", color: "#8aa0c4", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: "6px" }}>
             Material
           </div>
-          <div className="bg-editor-panel rounded p-2 border border-editor-border space-y-1">
+          <div style={{
+            background: "#0d1326", border: "1px solid #1e2d50",
+            borderRadius: "4px", padding: "8px",
+          }}>
             {structure.material.color && (
-              <div className="flex items-center gap-2">
-                <span className="text-editor-text-muted">Color</span>
-                <div
-                  className="w-4 h-4 rounded border border-editor-border"
-                  style={{ backgroundColor: structure.material.color }}
-                />
-                <span className="font-mono text-editor-text">{structure.material.color}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                <span style={{ color: "#8aa0c4", fontSize: "10px", width: "44px" }}>Color</span>
+                <div style={{
+                  width: "14px", height: "14px", borderRadius: "3px",
+                  background: structure.material.color,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontFamily: "monospace", fontSize: "10px", color: "#e6f1ff" }}>
+                  {structure.material.color}
+                </span>
               </div>
             )}
             {structure.material.opacity !== undefined && (
-              <div className="flex items-center gap-2">
-                <span className="text-editor-text-muted">Opacity</span>
-                <span className="font-mono text-editor-text">{structure.material.opacity}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ color: "#8aa0c4", fontSize: "10px", width: "44px" }}>Opacity</span>
+                <span style={{ fontFamily: "monospace", fontSize: "10px", color: "#e6f1ff" }}>
+                  {structure.material.opacity}
+                </span>
               </div>
             )}
           </div>

@@ -8,48 +8,12 @@ import React, {
 } from "react";
 import { useEditorStore } from "@/lib/store";
 import type { MMLRenderer } from "@/lib/renderer/engine";
+import { patchMmlTransform } from "@/lib/mml/transformPatch";
+import type { Transform9 } from "@/lib/mml/transformPatch";
 
 interface ThreeViewportProps {
   mmlHtml: string;
   isPlayMode?: boolean;
-}
-
-type Transform9 = {
-  x: number; y: number; z: number;
-  rx: number; ry: number; rz: number;
-  sx: number; sy: number; sz: number;
-};
-
-function patchMmlTransform(mml: string, id: string, t: Transform9): string {
-  const idStr = `id="${id}"`;
-  const pos = mml.indexOf(idStr);
-  if (pos === -1) return mml;
-
-  let start = pos;
-  while (start > 0 && mml[start] !== "<") start--;
-
-  let end = pos;
-  while (end < mml.length && mml[end] !== ">") end++;
-
-  let tag = mml.slice(start, end + 1);
-
-  for (const attr of ["x", "y", "z", "rx", "ry", "rz", "sx", "sy", "sz"]) {
-    tag = tag.replace(new RegExp(`\\s+${attr}="[^"]*"`, "g"), "");
-  }
-
-  let ins = "";
-  if (t.x !== 0) ins += ` x="${+t.x.toFixed(3)}"`;
-  if (t.y !== 0) ins += ` y="${+t.y.toFixed(3)}"`;
-  if (t.z !== 0) ins += ` z="${+t.z.toFixed(3)}"`;
-  if (t.rx !== 0) ins += ` rx="${+t.rx.toFixed(1)}"`;
-  if (t.ry !== 0) ins += ` ry="${+t.ry.toFixed(1)}"`;
-  if (t.rz !== 0) ins += ` rz="${+t.rz.toFixed(1)}"`;
-  if (Math.abs(t.sx - 1) > 0.0001) ins += ` sx="${+t.sx.toFixed(4)}"`;
-  if (Math.abs(t.sy - 1) > 0.0001) ins += ` sy="${+t.sy.toFixed(4)}"`;
-  if (Math.abs(t.sz - 1) > 0.0001) ins += ` sz="${+t.sz.toFixed(4)}"`;
-
-  const patched = tag.slice(0, -1) + ins + ">";
-  return mml.slice(0, start) + patched + mml.slice(end + 1);
 }
 
 export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProps) {
@@ -92,6 +56,12 @@ export function ThreeViewport({ mmlHtml, isPlayMode = false }: ThreeViewportProp
       if (!isPlayMode) {
         renderer.setOnSelectionChange((id) => {
           setSelectedObjectId(id);
+          // Auto-focus the inspector when an object is selected
+          if (id) {
+            const s = useEditorStore.getState();
+            s.setSidebarTab("inspector");
+            s.setInspectorTab("selection");
+          }
         });
 
         renderer.setOnTransformChange((id, transform) => {

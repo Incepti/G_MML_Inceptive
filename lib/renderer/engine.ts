@@ -146,7 +146,8 @@ export class MMLRenderer {
     // ── Transform Controls (gizmo) ──────────────────────────────────────
     this.transformControls = new TransformControls(this.camera, canvas);
     this.transformControls.name = "__editor_gizmo__";
-    this.transformControls.setSize(0.75);
+    this.transformControls.setSize(1.1);
+    this.transformControls.setSpace("local"); // local space = predictable per-object axes
     this.scene.add(this.transformControls);
 
     // Disable orbit while dragging gizmo
@@ -851,6 +852,9 @@ export class MMLRenderer {
    */
   setTransformMode(mode: "translate" | "rotate" | "scale") {
     this.transformControls.setMode(mode);
+    // translate in world space (move along world axes like UE5)
+    // rotate + scale in local space (operate relative to object's own axes)
+    this.transformControls.setSpace(mode === "translate" ? "world" : "local");
   }
 
   /**
