@@ -1,13 +1,36 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
+import type { editor } from "monaco-editor";
 import { useEditorStore } from "@/lib/store";
 
 export function DiffViewer() {
   const { pendingDiff, acceptDiff, rejectDiff } = useEditorStore();
+  const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
+  const [closing, setClosing] = useState(false);
 
-  if (!pendingDiff) return null;
+  // Reset closing state when a new diff arrives
+  useEffect(() => {
+    if (pendingDiff) setClosing(false);
+  }, [pendingDiff]);
+
+  // Dispose editor before state change to prevent "TextModel disposed" crash
+  const safeClose = useCallback((action: () => void) => {
+    setClosing(true);
+    if (editorRef.current) {
+      editorRef.current.dispose();
+      editorRef.current = null;
+    }
+    // Let React unmount the DiffEditor first, then update store
+    requestAnimationFrame(() => action());
+  }, []);
+
+  const handleMount = useCallback((editor: editor.IStandaloneDiffEditor) => {
+    editorRef.current = editor;
+  }, []);
+
+  if (!pendingDiff || closing) return null;
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-editor-bg">
@@ -21,13 +44,13 @@ export function DiffViewer() {
         </span>
         <div className="ml-auto flex gap-2">
           <button
-            onClick={acceptDiff}
+            onClick={() => safeClose(acceptDiff)}
             className="text-[10px] px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors font-medium"
           >
             Accept Changes
           </button>
           <button
-            onClick={rejectDiff}
+            onClick={() => safeClose(rejectDiff)}
             className="text-[10px] px-3 py-1 bg-editor-border hover:bg-red-900/40 text-editor-text rounded transition-colors"
           >
             Reject
@@ -43,6 +66,7 @@ export function DiffViewer() {
           original={pendingDiff.oldMml}
           modified={pendingDiff.newMml}
           theme="vs-dark"
+          onMount={handleMount}
           options={{
             fontSize: 13,
             fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
