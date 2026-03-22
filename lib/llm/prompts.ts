@@ -11,7 +11,7 @@ import type { ClassificationResult } from "@/lib/classifier";
 
 // ─── ALPHA RULES ──────────────────────────────────────────────────────────────
 
-const ALPHA_RULES = `
+export const ALPHA_RULES = `
 ## MML ALPHA — HARD CONSTRAINTS
 
 ALLOWED TAGS (13 only):
@@ -33,7 +33,7 @@ NEVER set both geometry AND modelTags on the same structure.
 
 // ─── STRUCTURE FORMAT ─────────────────────────────────────────────────────────
 
-const STRUCTURE_FORMAT = `
+export const STRUCTURE_FORMAT = `
 ## STRUCTURE FORMAT
 
 {

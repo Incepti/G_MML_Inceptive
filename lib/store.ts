@@ -73,7 +73,7 @@ interface EditorState {
   settingsOpen: boolean;
 
   // UI State
-  sidebarTab: "inspector" | "agent";
+  sidebarTab: "inspector" | "agent" | "biome";
   inspectorTab: "properties" | "manifest" | "validation" | "selection";
 
   // Sandbox
@@ -146,7 +146,7 @@ interface EditorActions {
   setSettingsOpen: (open: boolean) => void;
 
   // UI
-  setSidebarTab: (tab: "inspector" | "agent") => void;
+  setSidebarTab: (tab: "inspector" | "agent" | "biome") => void;
   setInspectorTab: (tab: "properties" | "manifest" | "validation" | "selection") => void;
 
   // Sandbox

@@ -11,6 +11,7 @@ import { buildObjectSystemPrompt, buildSceneSystemPrompt, buildPatchSystemPrompt
 import { buildEnvironmentCatalogPrompt } from "@/lib/assets/environment-catalog";
 import { buildOthersideCatalogPrompt } from "@/lib/assets/otherside-prompt";
 import { buildGeezCollectionPrompt } from "@/lib/assets/geez-prompt";
+import { buildBiomeSystemPrompt } from "@/lib/biome/prompt";
 // Builder + serializer pipeline is now internal to generateMml
 import type { BlueprintJSON, AiResponse, AiNewSceneResponse, AiPatchResponse } from "@/types/blueprint";
 
@@ -122,7 +123,19 @@ export async function POST(req: NextRequest) {
       // Send: scoped prompt + user request ONLY
       // Do NOT send: conversation history, MML, previous blueprints
 
-      if (classification.generationMode === "OBJECT") {
+      // Check for biome mode: [BIOME:biome_id] prefix
+      const biomeMatch = userMessage.match(/^\[BIOME:(\w+)\]\s*/);
+      const biomeId = biomeMatch?.[1];
+      const cleanUserMessage = biomeId ? userMessage.replace(biomeMatch![0], "") : userMessage;
+
+      if (biomeId) {
+        // ─── BIOME MODE ────────────────────────────────────────
+        systemPrompt = buildBiomeSystemPrompt(biomeId, cleanUserMessage || undefined);
+        // Biomes use both catalogs
+        systemPrompt += "\n\n" + buildEnvironmentCatalogPrompt();
+        systemPrompt += "\n\n" + buildOthersideCatalogPrompt();
+        console.log(`[/api/ai] BIOME mode: ${biomeId}`);
+      } else if (classification.generationMode === "OBJECT") {
         systemPrompt = buildObjectSystemPrompt(classification);
         // OBJECT mode: no environment catalog by default
       } else {
@@ -131,7 +144,7 @@ export async function POST(req: NextRequest) {
         systemPrompt += "\n\n" + buildEnvironmentCatalogPrompt();
       }
       // Inject Otherside catalog whenever user mentions "otherside"
-      if (classification.needsOthersideCatalog) {
+      if (!biomeId && classification.needsOthersideCatalog) {
         systemPrompt += "\n\n" + buildOthersideCatalogPrompt();
       }
       // Inject Geez collection info whenever user mentions "geez"
@@ -146,11 +159,15 @@ export async function POST(req: NextRequest) {
 
       // Clean, stateless user message — NO history, NO MML
       // Exception: if the scene has library-inserted models, include current MML as context
-      userContent = `USER REQUEST: ${userMessage}`;
-      if (currentMml) {
+      userContent = biomeId
+        ? `USER REQUEST: Generate a ${cleanUserMessage || "dense"} biome environment.\n\nReturn a NEW_SCENE response as valid JSON. No markdown.`
+        : `USER REQUEST: ${userMessage}`;
+      if (!biomeId && currentMml) {
         userContent += `\n\nCURRENT SCENE (models were manually added from library — preserve or modify as requested):\n${currentMml}`;
       }
-      userContent += `\n\nReturn a NEW_SCENE response as valid JSON. No markdown.`;
+      if (!biomeId) {
+        userContent += `\n\nReturn a NEW_SCENE response as valid JSON. No markdown.`;
+      }
       messages.push({ role: "user", content: userContent });
     }
 

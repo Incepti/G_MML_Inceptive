@@ -4,10 +4,12 @@ import React from "react";
 import { useEditorStore } from "@/lib/store";
 import { AIAgentPanel } from "@/components/chat/AIAgentPanel";
 import { InspectorPanel } from "@/components/renderer/InspectorPanel";
+import { BiomePanel } from "@/components/biome/BiomePanel";
 
-const TABS: Array<{ id: "inspector" | "agent"; label: string }> = [
+const TABS: Array<{ id: "inspector" | "agent" | "biome"; label: string }> = [
   { id: "inspector", label: "Inspector" },
   { id: "agent", label: "Agent" },
+  { id: "biome", label: "Biomes" },
 ];
 
 export function RightSidebar() {
@@ -36,6 +38,7 @@ export function RightSidebar() {
       <div className="flex-1 overflow-hidden">
         {sidebarTab === "inspector" && <InspectorPanel />}
         {sidebarTab === "agent" && <AIAgentPanel />}
+        {sidebarTab === "biome" && <BiomePanel />}
       </div>
     </div>
   );
