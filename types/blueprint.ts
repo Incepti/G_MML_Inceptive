@@ -121,8 +121,8 @@ export const SceneSchema = z.object({
 // ─── Blueprint Budgets ──────────────────────────────────────────────────────
 export const BudgetsSchema = z.object({
   maxLights: z.number().max(8).default(8),
-  maxModels: z.number().max(100).default(100),
-  maxEntities: z.number().max(500).default(500),
+  maxModels: z.number().max(200).default(100),
+  maxEntities: z.number().max(1000).default(500),
 });
 
 export type Budgets = z.infer<typeof BudgetsSchema>;

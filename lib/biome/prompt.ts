@@ -67,6 +67,15 @@ ${preset.gcsCategories.map((c) => `  - ${c}`).join("\n")}
 Mix assets from BOTH sources. Use "otherside" as first tag for fantasy/alien elements.
 Use regular tags for realistic elements (trees, rocks, buildings).
 
+## VALID STRUCTURE TYPES (use ONLY these)
+wall, tower, building, room, door, window, prop, light, fence, gate, roof, floor,
+pillar, arch, stair, bridge, tree, rock, water, lamp, bench, table, chair, sign,
+barrel, crate, vehicle, custom, furniture, machine, container, creature, nature,
+character, house, animal, decoration, food, electronics, structure,
+m-cube, m-cylinder, m-sphere, m-plane
+
+For biome elements that don't fit above, use "prop", "nature", "decoration", or "custom".
+
 ## PLACEMENT RULES
 
 - Use the 9-zone grid: NW, N, NE, W, C, E, SW, S, SE
@@ -88,7 +97,7 @@ NEVER use geometry for objects that should be models — use modelTags instead.
     "type": "scene",
     "intent": { "name": "${preset.name}", "archetype": "environment" },
     "style": { "theme": "fantasy", "detailLevel": "high" },
-    "composition": { "focus": "immersion", "symmetry": false },
+    "composition": { "focus": "layout", "symmetry": false },
     "meta": { "title": "${preset.name} Biome", "sceneScale": "large", "seed": "biome1" },
     "budgets": { "maxLights": 8, "maxModels": 200, "maxEntities": 1000 },
     "scene": {

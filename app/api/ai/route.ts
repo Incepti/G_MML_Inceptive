@@ -230,8 +230,9 @@ export async function POST(req: NextRequest) {
       const ns = aiResponse as AiNewSceneResponse;
       const bpResult = validateBlueprint(ns.blueprint);
       if (!bpResult.ok) {
+        console.error("[/api/ai] Blueprint validation errors:", bpResult.errors);
         return NextResponse.json(
-          { type: "ERROR", error: "Blueprint validation failed", details: bpResult.errors },
+          { type: "ERROR", error: `Blueprint validation failed: ${bpResult.errors.slice(0, 3).join("; ")}`, details: bpResult.errors },
           { status: 200 }
         );
       }
